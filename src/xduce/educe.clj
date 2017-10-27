@@ -1,8 +1,8 @@
 (ns xduce.educe
   (:import
-    [java.lang.ref ReferenceQueue WeakReference]
-    java.util.concurrent.ConcurrentHashMap
-    [java.util Queue LinkedList Iterator NoSuchElementException]
+    [java.lang.ref ReferenceQueue Reference WeakReference]
+    [java.util.concurrent ConcurrentHashMap]
+    [java.util Map Map$Entry Queue LinkedList Iterator NoSuchElementException]
     [clojure.lang RT ArraySeq]))
 
 (set! *warn-on-reflection* true)
@@ -12,12 +12,17 @@
 (definterface Buffer
   (add [o])
   (remove [])
+  (get [])
   (isEmpty []))
+
+(definterface Reloadable
+  (reset [newiter]))
 
 (deftype Many [^Queue vals]
   Buffer
   (add [this o] (.add vals o) this)
   (remove [this] (.remove vals))
+  (get [this] vals)
   (isEmpty [this] (.isEmpty vals))
   (toString [this] (str "Many: " (.toString vals))))
 
@@ -34,13 +39,54 @@
     (let [ret val]
       (set! val NONE)
       ret))
+  (get [this] val)
   (isEmpty [this] (identical? val NONE))
   (toString [this] (str "Single: " val)))
+
+(defn- clear [^ConcurrentHashMap chm ^ReferenceQueue rq]
+  (when (.poll rq)
+    (while (.poll rq))
+    (doseq [^Map$Entry e (.entrySet chm)]
+      (let [^Reference val (.getValue e)]
+        (when (and (not (nil? val)) (nil? (.get val)))
+          (.remove chm (.getKey e) val))))))
+
+(defn- get-clear [^Object k ^Object e ^ConcurrentHashMap chm ^ReferenceQueue rq]
+  (or
+    (let [hit (.get chm k)]
+      ; (when hit (println "cache hit"))
+      hit)
+    (do
+      (clear chm rq)
+      ; (println "cache miss")
+      (.putIfAbsent chm k (WeakReference. e rq)))))
+
+(defn- cached [e ^ConcurrentHashMap chm ^ReferenceQueue rq]
+  (let  [k (hash e)]
+    (if-let [^Reference wref (get-clear k e chm rq)]
+      (if-let [fromcache (.get wref)]
+        fromcache
+        (do
+          ; (println "ref died, start over")
+          (.remove chm k wref)
+          (cached e)))
+      e)))
+
+(deftype CachingIterator [^Iterator ^:volatile-mutable iter
+                          ^ConcurrentHashMap chm
+                          ^ReferenceQueue rq]
+  Reloadable
+  (reset [this newiter] (set! iter newiter))
+  Iterator
+  (hasNext [this] (.hasNext iter))
+  (next [this] (cached (.next iter) chm rq))
+  (remove [this] (.remove iter)))
 
 (deftype Empty []
   Buffer
   (add [this o] (Single. o))
   (remove [this] (throw (IllegalStateException. "Removing object from empty buffer")))
+  (get [this] this)
   (isEmpty [this] true)
   (toString [this] "Empty"))
 
@@ -95,19 +141,17 @@
       (ArraySeq/create nexts)))
   (remove [this] (throw (UnsupportedOperationException.))))
 
-(defn- create-single [xform iterator buffer buff-fn]
-  (TransformerIterator. (xform buff-fn) iterator false buffer NONE false))
-
-(defn- create-multi [xform sources buffer buff-fn]
-  (let [iters (into-array Iterator sources)]
-    (TransformerIterator. (xform buff-fn) (MultiIterator. iters) true buffer NONE false)))
-
-(defn create [xform iter]
-  (let [buffer (volatile! (Empty.))
+(defn create [xform iter & [buffer]]
+  (let [buffer (or buffer (volatile! (Empty.)))
         buff-fn (fn ([]) ([acc] acc) ([acc o] (vreset! buffer (.add ^Buffer @buffer o)) acc))]
     (if (instance? Iterator iter)
-      (create-single xform iter buffer buff-fn)
-      (create-multi xform iter buffer buff-fn))))
+      ; (TransformerIterator. (xform buff-fn) iter false buffer NONE false)
+      (TransformerIterator. (xform buff-fn) (CachingIterator. iter (ConcurrentHashMap.) (ReferenceQueue.)) false buffer NONE false)
+      (TransformerIterator. (xform buff-fn) (MultiIterator. (into-array Iterator iter)) true buffer NONE false))))
+
+(defn weak [xform iter]
+  ; (create xform iter (volatile! (CachingEmpty. (ConcurrentHashMap.) (ReferenceQueue.))))
+  )
 
 (deftype Educe [xform coll]
    Iterable
@@ -120,6 +164,6 @@
 
 (defmethod print-method Educe [c, ^java.io.Writer w]
   (if *print-readably*
+    (#'clojure.core/print-object c w)
     (do
-      (#'clojure.core/print-sequential "(" #'clojure.core/pr-on " " ")" c w))
-    (#'clojure.core/print-object c w)))
+      (#'clojure.core/print-sequential "(" #'clojure.core/pr-on " " ")" c w))))

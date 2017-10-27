@@ -2,7 +2,7 @@
   (:import [clojure.lang RT]
            [java.lang.ref ReferenceQueue WeakReference]
            java.util.concurrent.ConcurrentHashMap
-           xduce.educe.CachingSingle)
+           [xduce.educe Single CachingIterator])
   (:require [xduce.educe :as educe]
             [clojure.test :refer :all]))
 
@@ -26,6 +26,15 @@
     (let [e (educe/create (comp (map inc) (mapcat range)) (RT/iter (range 3)))]
       (is (= [0 0 1 0 1 2]) (doseq [_ (range 6)] (.next e)))
       (is (= false (.hasNext e))))))
+
+(testing "caching iterator"
+  (let [cnt (atom 0)
+        coll (map #(do (swap! cnt inc) %) (range 10))
+        iter (CachingIterator. (RT/iter coll) (ConcurrentHashMap.) (ReferenceQueue.))]
+    (is (= nil (doseq [_ (range 10)] (.next iter))))
+    (is (= (.reset iter (RT/iter (map #(do (swap! cnt inc) %) (range 10))))))
+    (is (= nil (doseq [_ (range 10)] (.next iter))))
+    (is (= 20 @cnt))))
 
 ; (require '[xduce.educe :as e] :reload)
 ; (let [it (e/create (comp (map inc) (mapcat range)) (clojure.lang.RT/iter (range 3)))] (while (.hasNext it) (prn (.next it))))
