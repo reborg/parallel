@@ -6,7 +6,9 @@
 (deftest eduction-test
   (testing "eduction"
     (let [e (xduce/eduction (map inc) (filter odd?) (range 10))]
-      (is (= [1 3 5 7 9] (conj (rest e) (first e)))))))
+      (is (= [1 3 5 7 9] (conj (rest e) (first e)))))
+    (let [e (xduce/eduction (map inc) (filter odd?) (range 65))]
+      (is (= (first e) (first e))))))
 
 (deftest sequence-test
   (testing "sequence"

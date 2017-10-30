@@ -38,8 +38,12 @@
       (throw (IllegalStateException. "Removing object from empty buffer")))
     (let [ret val]
       (set! val NONE)
+      ; (println "I. Single::remove returning val" ret)
       ret))
-  (get [this] val)
+  (get [this]
+    (do
+      ; (println "II. Single::get val is" val)
+      val))
   (isEmpty [this] (identical? val NONE))
   (toString [this] (str "Single: " val)))
 
@@ -54,11 +58,11 @@
 (defn- get-clear [^Object k ^Object e ^ConcurrentHashMap chm ^ReferenceQueue rq]
   (or
     (let [hit (.get chm k)]
-      ; (when hit (println "cache hit"))
+      ; (when hit (println "cache hit for k" k "is" (.get hit)))
       hit)
     (do
       (clear chm rq)
-      ; (println "cache miss")
+      ; (println "cache miss for" k)
       (.putIfAbsent chm k (WeakReference. e rq)))))
 
 (defn- cached [e ^ConcurrentHashMap chm ^ReferenceQueue rq]
@@ -67,7 +71,7 @@
       (if-let [fromcache (.get wref)]
         fromcache
         (do
-          (println "ref died, start over")
+          ; (println "ref died, start over")
           (.remove chm k wref)
           (cached e)))
       e)))
@@ -77,16 +81,17 @@
                           ^ReferenceQueue rq]
   Reloadable
   (reset [this newiter]
-    ; (println "CachingIterator::reset new iter" (type newiter))
+    ; (println "a. CachingIterator::reset new iter" (type newiter))
     (set! iter newiter))
   Iterator
   (hasNext [this]
     (let [hasnext (.hasNext iter)]
-      ; (println "CachingIterator::hasNext" hasnext)
-      (.hasNext iter)))
+      ; (println "b. CachingIterator::hasNext is" hasnext)
+      hasnext))
   (next [this]
-    ; (println "CachingIterator::next")
-    (cached (.next iter) chm rq))
+    (let [n (.next iter)]
+      ; (println "c. CachingIterator::next next is" n)
+      (cached n chm rq)))
   (remove [this] (.remove iter)))
 
 (deftype Empty []
@@ -105,32 +110,40 @@
                               ^:volatile-mutable completed]
   Reloadable
   (reset [this newiter]
-    ; (println "TransformerIterator::reset new iter" (type newiter))
+    ; (println "0. TransformerIterator::reset new iter. Buffer contains" (.get @buffer))
     (.reset ^Reloadable sourceIter newiter)
-    (set! completed false))
+    (set! completed false)
+    (vreset! buffer (Empty.))
+    (set! next NONE))
   Iterator
   (hasNext [this]
-    ; (println "TransformerIterator::hasNext completed?" completed)
     (if (identical? next NONE)
       (do
+        ; (println "1. TransformerIterator::hasNext next is NONE")
         (while (and (identical? next NONE) (not completed))
           (if (.isEmpty ^Buffer @buffer)
             (if (.hasNext sourceIter)
-              (let [iter (if multi
-                           (.applyTo xf (RT/cons nil (.next sourceIter)))
-                           (.invoke xf nil (.next sourceIter)))]
+              (let [n (.next sourceIter)
+                    ; _ (println "2. TransformerIterator::hasNext next is" n)
+                    iter (if multi
+                           (.applyTo xf (RT/cons nil n))
+                           (.invoke xf nil n))]
                 (when (RT/isReduced iter)
+                  ; (println "3. TransformerIterator::hasNext iter is reduced. Completed set to true.")
                   (.invoke xf nil)
                   (set! completed true)))
               (do
                 (.invoke xf nil)
                 (set! completed true)))
-            (set! next (.remove ^Buffer @buffer))))
+            (do
+              ; (println "3. TransformerIterator::hasNext, buffer contains" (.get @buffer))
+              (set! next (.remove ^Buffer @buffer)))))
         (not completed))
       true))
   (next [this]
+      ; (println "4a. TransformerIterator::next this is" this)
     (let [hasnext (.hasNext this)]
-      ; (println "TransformerIterator::next hasnext?" hasnext "next currently" next)
+      ; (println "4b. TransformerIterator::next hasnext?" hasnext "next currently" next)
       (if hasnext
         (let [ret next]
           (set! next NONE)
@@ -161,8 +174,7 @@
         buff-fn (fn ([]) ([acc] acc) ([acc o] (vreset! buffer (.add ^Buffer @buffer o)) acc))]
     (if (instance? Iterator iter)
       (TransformerIterator. (xform buff-fn) (CachingIterator. iter (ConcurrentHashMap.) (ReferenceQueue.)) false buffer NONE false)
-      ; (TransformerIterator. (xform buff-fn) iter false buffer NONE false)
-      (TransformerIterator. (xform buff-fn) (MultiIterator. (into-array Iterator iter)) true buffer NONE false))))
+      (TransformerIterator. (xform buff-fn) (CachingIterator. (MultiIterator. (into-array Iterator iter)) (ConcurrentHashMap.) (ReferenceQueue.)) true buffer NONE false))))
 
 (defn weak [xform iter]
   ; (create xform iter (volatile! (CachingEmpty. (ConcurrentHashMap.) (ReferenceQueue.))))
@@ -177,7 +189,7 @@
          ; (println "No iter, new chain.")
          (set! iter (create xform (RT/iter coll))))
        (do
-         ; (println "Existing chain." iter)
+         ; (println "I. Existing chain with iter" iter)
          (.reset ^Reloadable iter (RT/iter coll))
          iter)))
 
