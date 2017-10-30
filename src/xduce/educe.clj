@@ -67,7 +67,7 @@
       (if-let [fromcache (.get wref)]
         fromcache
         (do
-          ; (println "ref died, start over")
+          (println "ref died, start over")
           (.remove chm k wref)
           (cached e)))
       e)))
@@ -76,10 +76,17 @@
                           ^ConcurrentHashMap chm
                           ^ReferenceQueue rq]
   Reloadable
-  (reset [this newiter] (set! iter newiter))
+  (reset [this newiter]
+    ; (println "CachingIterator::reset new iter" (type newiter))
+    (set! iter newiter))
   Iterator
-  (hasNext [this] (.hasNext iter))
-  (next [this] (cached (.next iter) chm rq))
+  (hasNext [this]
+    (let [hasnext (.hasNext iter)]
+      ; (println "CachingIterator::hasNext" hasnext)
+      (.hasNext iter)))
+  (next [this]
+    ; (println "CachingIterator::next")
+    (cached (.next iter) chm rq))
   (remove [this] (.remove iter)))
 
 (deftype Empty []
@@ -96,8 +103,14 @@
                               buffer
                               ^:volatile-mutable next
                               ^:volatile-mutable completed]
+  Reloadable
+  (reset [this newiter]
+    ; (println "TransformerIterator::reset new iter" (type newiter))
+    (.reset ^Reloadable sourceIter newiter)
+    (set! completed false))
   Iterator
   (hasNext [this]
+    ; (println "TransformerIterator::hasNext completed?" completed)
     (if (identical? next NONE)
       (do
         (while (and (identical? next NONE) (not completed))
@@ -116,11 +129,13 @@
         (not completed))
       true))
   (next [this]
-    (if (.hasNext this)
-      (let [ret next]
-        (set! next NONE)
-        ret)
-      (throw (NoSuchElementException.))))
+    (let [hasnext (.hasNext this)]
+      ; (println "TransformerIterator::next hasnext?" hasnext "next currently" next)
+      (if hasnext
+        (let [ret next]
+          (set! next NONE)
+          ret)
+        (throw (NoSuchElementException.)))))
   (remove [this] (throw (UnsupportedOperationException.))))
 
 (deftype MultiIterator [^"[Ljava.util.Iterator;" iters]
@@ -145,17 +160,26 @@
   (let [buffer (or buffer (volatile! (Empty.)))
         buff-fn (fn ([]) ([acc] acc) ([acc o] (vreset! buffer (.add ^Buffer @buffer o)) acc))]
     (if (instance? Iterator iter)
-      ; (TransformerIterator. (xform buff-fn) iter false buffer NONE false)
       (TransformerIterator. (xform buff-fn) (CachingIterator. iter (ConcurrentHashMap.) (ReferenceQueue.)) false buffer NONE false)
+      ; (TransformerIterator. (xform buff-fn) iter false buffer NONE false)
       (TransformerIterator. (xform buff-fn) (MultiIterator. (into-array Iterator iter)) true buffer NONE false))))
 
 (defn weak [xform iter]
   ; (create xform iter (volatile! (CachingEmpty. (ConcurrentHashMap.) (ReferenceQueue.))))
   )
 
-(deftype Educe [xform coll]
+(deftype Educe [^Iterator ^:unsynchronized-mutable iter xform coll]
    Iterable
-   (iterator [_] (create xform (RT/iter coll)))
+   (iterator [_]
+     ; (create xform (RT/iter coll))
+     (if (nil? iter)
+       (do
+         ; (println "No iter, new chain.")
+         (set! iter (create xform (RT/iter coll))))
+       (do
+         ; (println "Existing chain." iter)
+         (.reset ^Reloadable iter (RT/iter coll))
+         iter)))
 
    clojure.lang.IReduceInit
    (reduce [_ f init] (transduce xform (completing f) init coll))

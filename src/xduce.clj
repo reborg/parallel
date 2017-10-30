@@ -5,7 +5,7 @@
 
 (defn eduction
   [& xforms]
-  (Educe. (apply comp (butlast xforms)) (last xforms)))
+  (Educe. nil (apply comp (butlast xforms)) (last xforms)))
 
 (defn sequence
   ([xform coll]
