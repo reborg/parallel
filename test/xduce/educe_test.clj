@@ -1,8 +1,7 @@
 (ns xduce.educe-test
   (:import [clojure.lang RT]
            [java.lang.ref ReferenceQueue WeakReference]
-           java.util.concurrent.ConcurrentHashMap
-           xduce.educe.CachingSingle)
+           java.util.concurrent.ConcurrentHashMap)
   (:require [xduce.educe :as educe]
             [clojure.test :refer :all]))
 
