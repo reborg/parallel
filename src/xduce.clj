@@ -18,9 +18,3 @@
            xform
            (map #(clojure.lang.RT/iter %) (cons coll colls))))
        ())))
-
-(defn cacheable
-  ([xform coll]
-     (or (educe/weak xform (clojure.lang.RT/iter coll)) ()))
-  ([xform coll & colls]
-     (or (educe/weak xform (map #(clojure.lang.RT/iter %) (cons coll colls))) ())))

@@ -10,12 +10,12 @@
     (let [e (xduce/eduction (map inc) (filter odd?) (range 65))]
       (is (= (first e) (first e))))))
 
-(deftest sequence-test
+#_(deftest sequence-test
   (testing "sequence"
     (is (= [1 3 5 7 9] (xduce/sequence (comp (map inc) (filter odd?)) (range 10))))
     (is (= (range 10) (xduce/sequence (comp (map vector) cat (dedupe)) (range 10) (range 10))))))
 
-(deftest mix
+#_(deftest mix
   (testing "clj-1669"
     (let [s (range 1000)
           v (vec s)

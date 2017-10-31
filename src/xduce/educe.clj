@@ -57,12 +57,12 @@
 
 (defn- get-clear [^Object k ^Object e ^ConcurrentHashMap chm ^ReferenceQueue rq]
   (or
-    (let [hit (.get chm k)]
-      ; (when hit (println "cache hit for k" k "is" (.get hit)))
+    (let [^Reference hit (.get chm k)]
+      (when hit (println "cache hit for k" k "is" (.get hit)))
       hit)
     (do
       (clear chm rq)
-      ; (println "cache miss for" k)
+      (println "cache miss for" k)
       (.putIfAbsent chm k (WeakReference. e rq)))))
 
 (defn- cached [e ^ConcurrentHashMap chm ^ReferenceQueue rq]
@@ -73,7 +73,7 @@
         (do
           ; (println "ref died, start over")
           (.remove chm k wref)
-          (cached e)))
+          (cached e chm rq)))
       e)))
 
 (deftype CachingIterator [^Iterator ^:volatile-mutable iter
@@ -173,12 +173,8 @@
   (let [buffer (or buffer (volatile! (Empty.)))
         buff-fn (fn ([]) ([acc] acc) ([acc o] (vreset! buffer (.add ^Buffer @buffer o)) acc))]
     (if (instance? Iterator iter)
-      (TransformerIterator. (xform buff-fn) (CachingIterator. iter (ConcurrentHashMap.) (ReferenceQueue.)) false buffer NONE false)
+      (CachingIterator. (TransformerIterator. (xform buff-fn) iter false buffer NONE false) (ConcurrentHashMap.) (ReferenceQueue.))
       (TransformerIterator. (xform buff-fn) (CachingIterator. (MultiIterator. (into-array Iterator iter)) (ConcurrentHashMap.) (ReferenceQueue.)) true buffer NONE false))))
-
-(defn weak [xform iter]
-  ; (create xform iter (volatile! (CachingEmpty. (ConcurrentHashMap.) (ReferenceQueue.))))
-  )
 
 (deftype Educe [^Iterator ^:unsynchronized-mutable iter xform coll]
    Iterable
