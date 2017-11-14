@@ -1,5 +1,5 @@
-(defproject xduce "0.1.0"
-  :description "Transducers and beyond."
+(defproject xduce "0.1"
+  :description "A library of trasnducers and reducers."
   :url "https://github.com/reborg/xduce"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
