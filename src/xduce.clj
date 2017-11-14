@@ -1,12 +1,13 @@
 (ns xduce
+  (:refer-clojure :exclude [eduction sequence])
   (:import [xduce.educe Educe])
   (:require [xduce.educe :as educe]))
 
-(defn xeduction
+(defn eduction
   [& xforms]
   (Educe. (apply comp (butlast xforms)) (last xforms)))
 
-(defn xequence
+(defn sequence
   ([xform coll]
      (or (clojure.lang.RT/chunkIteratorSeq
          (educe/create xform (clojure.lang.RT/iter coll)))
