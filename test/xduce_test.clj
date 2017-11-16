@@ -1,33 +1,57 @@
 (ns xduce-test
-  (:refer-clojure :exclude [eduction sequence])
   (:import [clojure.lang RT])
-  (:require [xduce :refer :all]
+  (:require [xduce :as x]
             [clojure.test :refer :all]))
 
-(deftest eduction-test
+(deftest eduction-sequence-test
   (testing "eduction"
-    (is (= [1 3 5 7 9] (eduction (map inc) (filter odd?) (range 10))))))
+    (is (= [1 3 5 7 9] (x/eduction (map inc) (filter odd?) (range 10)))))
 
-(deftest sequence-test
   (testing "sequence"
-    (is (= [1 3 5 7 9] (sequence (comp (map inc) (filter odd?)) (range 10))))
-    (is (= (range 10) (sequence (comp (map vector) cat (dedupe)) (range 10) (range 10))))))
+    (is (= [1 3 5 7 9] (x/sequence (comp (map inc) (filter odd?)) (range 10))))
+    (is (= (range 10) (x/sequence (comp (map vector) cat (dedupe)) (range 10) (range 10)))))
 
-(deftest mix
-(testing "clj-1669"
-  (let [s (range 1000)
-        v (vec s)
-        s50 (range 50)
-        v50 (vec s50)]
-    (is (= (into [] (->> s (eduction (interpose 5) (partition-all 2)))) (into [] (->> s (clojure.core/eduction (interpose 5) (partition-all 2))))))
-    (is (= (sequence (map inc) s) (clojure.core/sequence (map inc) s)))
-    (is (= (into [] (eduction (map inc) s)) (into [] (clojure.core/eduction (map inc) s))))
-    (is (= (sequence (comp (map inc) (map inc)) s) (clojure.core/sequence (comp (map inc) (map inc)) s)))
-    (is (= (into [] (eduction (map inc) (map inc) s)) (into [] (clojure.core/eduction (map inc) (map inc) s))))
-    (is (= (sequence (comp (map inc) (mapcat range)) s50) (clojure.core/sequence (comp (map inc) (mapcat range)) s50)))
-    (is (= (into [] (eduction (map inc) (mapcat range) s50)) (into [] (clojure.core/eduction (map inc) (mapcat range) s50))))
-    (is (= (map inc (eduction (map inc) s)) (map inc (clojure.core/eduction (map inc) s))))
-    (is (= (map inc (eduction (map inc) (map inc) s)) (map inc (clojure.core/eduction (map inc) (map inc) s))))
-    (is (= (sort (eduction (map inc) s)) (sort (clojure.core/eduction (map inc) s))))
-    (is (= (->> s (eduction (filter odd?) (map str)) (sort-by last)) (->> s (clojure.core/eduction (filter odd?) (map str)) (sort-by last))))
-    )))
+  (testing "clj-1669"
+    (let [s (range 1000)
+          v (vec s)
+          s50 (range 50)
+          v50 (vec s50)]
+      (is (= (into [] (->> s (x/eduction (interpose 5) (partition-all 2)))) (into [] (->> s (eduction (interpose 5) (partition-all 2))))))
+      (is (= (x/sequence (map inc) s) (sequence (map inc) s)))
+      (is (= (into [] (x/eduction (map inc) s)) (into [] (eduction (map inc) s))))
+      (is (= (x/sequence (comp (map inc) (map inc)) s) (sequence (comp (map inc) (map inc)) s)))
+      (is (= (into [] (x/eduction (map inc) (map inc) s)) (into [] (eduction (map inc) (map inc) s))))
+      (is (= (x/sequence (comp (map inc) (mapcat range)) s50) (sequence (comp (map inc) (mapcat range)) s50)))
+      (is (= (into [] (x/eduction (map inc) (mapcat range) s50)) (into [] (eduction (map inc) (mapcat range) s50))))
+      (is (= (map inc (x/eduction (map inc) s)) (map inc (eduction (map inc) s))))
+      (is (= (map inc (x/eduction (map inc) (map inc) s)) (map inc (eduction (map inc) (map inc) s))))
+      (is (= (sort (x/eduction (map inc) s)) (sort (eduction (map inc) s))))
+      (is (= (->> s (x/eduction (filter odd?) (map str)) (sort-by last)) (->> s (eduction (filter odd?) (map str)) (sort-by last))))
+      )))
+
+(deftest interleave-test
+  (testing "interleave with sequence"
+    (is (= [0 :a 1 :b 2 :c] (sequence (x/interleave [:a :b :c]) (range 3))))
+    (are [x y] (= x y)
+         (sequence (x/interleave [1 2]) [3 4]) (interleave [3 4] [1 2])
+         (sequence (x/interleave [1]) [3 4]) (interleave [3 4] [1])
+         (sequence (x/interleave [1 2]) [3]) (interleave [3] [1 2])
+         (sequence (x/interleave []) [3 4]) (interleave [3 4] [])
+         (sequence (x/interleave [1 2]) []) (interleave [] [1 2])
+         (sequence (x/interleave []) []) (interleave [] [])))
+  (testing "interleave with eduction"
+    (is (= [1 0 2 1 3 2 4 3 5 4 6 5 7 6 8 7 9 8 10 9]
+           (eduction (map inc) (x/interleave (range)) (filter number?) (range 10))))))
+
+(deftest frequencies-test
+  (testing "frequencies with xform"
+    (is (= 5000 (count (x/frequencies (range 1e4) (filter odd?)))))
+    (is (= {":a" 2 ":b" 3} (x/frequencies [:a :a nil nil :b nil :b :b] (map str)))))
+  (testing "misc examples"
+    (are [expected test-seq] (= (x/frequencies test-seq) expected)
+         {\p 2 \s 4 \i 4 \m 1} "mississippi"
+         {1 4 2 2 3 1} [1 1 1 1 2 2 3]
+         {1 3 2 2 3 1} [1 nil 1 1 2 2 3]
+         {1 4 2 2 3 1} '(1 1 1 1 2 2 3))))
+
+

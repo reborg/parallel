@@ -1,21 +1,24 @@
 ## xduce
 
 `xduce` is a Clojure library of [Transducers](https://clojure.org/reference/transducers) and [Reducers](https://clojure.org/reference/reducers)
-with specific focus on parallelism. It contains the following:
+with specific focus on parallelism. It currently contains the following:
 
-Name                | Type         | Description
-------------------- | ------------ | -----------------------------------------------------------
-* [ ] `x/interleave`| Transducer   | Like `core/interleave`
-* [ ] `x/drop`      | Transducer   | Parallel-enabled `core/drop`
-* [ ] `x/jfold`     | Reducer      | Enables `reducers/fold` on mutable Java collections
-* [ ] `x/merge-sort`| Reducer      | Memory efficient parallel merge-sort
-* [ ] `x/mapv`      | Reducer      | Transform a vector in parallel and returns a vector.
-* [ ] `x/filterv`   | Reducer      | Filter a vector in parallel and returns a vector.
+Name                  | Type         | Description
+-------------------   | ------------ | ---------------------------------------------------
+* [ ] `x/interleave`  | Transducer   | Like `core/interleave`
+* [ ] `x/drop`        | Transducer   | Parallel-enabled `core/drop`
+* [ ] `x/jfold`       | Reducer      | Enables `reducers/fold` on mutable Java collections
+* [ ] `x/merge-sort`  | Reducer      | Memory efficient parallel merge-sort
+* [ ] `x/mapv`        | Reducer      | Transform a vector in parallel and returns a vector.
+* [ ] `x/filterv`     | Reducer      | Filter a vector in parallel and returns a vector.
+* [ ] `x/frequencies` | Reducer      | Like `core/frequencies` with some restrictions.
+
+Please see below for detailed information on how to use them.
 
 ## How to use the library
 
 Transducers, reducers and related utilities are available through the `xduce` namespace.
-Adds the following to your project dependencies:
+Add the following to your project dependencies:
 
 ```clojure
 [xduce "0.1"]
