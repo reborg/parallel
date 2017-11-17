@@ -3,12 +3,14 @@
   (:require [xduce.educe :as educe]
             [clojure.core.reducers :as r])
   (:import [xduce.educe Educe]
-           java.util.concurrent.atomic.AtomicInteger
+           [java.util.concurrent.atomic AtomicInteger]
            java.util.concurrent.ConcurrentHashMap
            [java.util HashMap Collections Map]))
 
 (set! *warn-on-reflection* true)
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
+
+(def ^:dynamic *mutable* false)
 
 (defn eduction
   [& xforms]
@@ -47,8 +49,7 @@
   "Like clojure.core/frequencies, but executes in parallel.
   It takes an optional list of transducers to apply to coll before
   the frequency is calculated. Restrictions:
-    * It's not lazy. The input is coerced into a vector.
-    * It does not support nil values. Theu are removed automatically.
+    * It does not support nil values.
     * Only stateless transducers are allowed in xforms."
   [coll & xforms]
   (let [coll (into [] coll)
@@ -58,6 +59,25 @@
              (let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                (when v (.incrementAndGet v))
                m))
-        reducef ((apply comp (conj xforms (remove nil?))) rf)]
+        reducef (if (seq xforms) ((apply comp xforms) rf) rf)]
     (r/fold combinef reducef coll)
-    (into {} m)))
+    (if *mutable* m (into {} m))))
+
+(defn update-vals
+  "Use f to update the values of a map in parallel. It performs well
+  with non-trivial f, otherwise is outperformed by reduce-kv.
+  For larger maps (> 100k keys), the final transformation
+  from mutable to persistent dominates over trivial f trasforms.
+  You can access the raw mutable result setting the dynamic
+  binding *mutable* to true. Restrictions:
+    * Does not support nil values."
+  [^Map input f]
+  (let [ks (into [] (keys input))
+        output (ConcurrentHashMap. (count ks) 1. ncpu)]
+    (r/fold
+      (fn ([] output) ([_ _]))
+      (fn [^Map m k]
+        (.put m k (f (.get input k)))
+        m)
+      ks)
+    (if *mutable* output (into {} output))))

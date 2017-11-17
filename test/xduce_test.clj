@@ -46,12 +46,17 @@
 (deftest frequencies-test
   (testing "frequencies with xform"
     (is (= 5000 (count (x/frequencies (range 1e4) (filter odd?)))))
-    (is (= {":a" 2 ":b" 3} (x/frequencies [:a :a nil nil :b nil :b :b] (map str)))))
+    (is (= {":a" 2 ":b" 3} (x/frequencies [:a :a :b :b :b] (map str)))))
   (testing "misc examples"
     (are [expected test-seq] (= (x/frequencies test-seq) expected)
          {\p 2 \s 4 \i 4 \m 1} "mississippi"
          {1 4 2 2 3 1} [1 1 1 1 2 2 3]
-         {1 3 2 2 3 1} [1 nil 1 1 2 2 3]
+         {1 3 2 2 3 1} [1 1 1 2 2 3]
          {1 4 2 2 3 1} '(1 1 1 1 2 2 3))))
 
+(defn large-map [i] (into {} (map vector (range i) (range i))))
 
+(deftest update-vals-test
+  (testing "sanity"
+    (is (= (map inc (range 1000))
+           (sort (vals (x/update-vals (large-map 1000) inc)))))))

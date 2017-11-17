@@ -8,7 +8,7 @@
         'java.util.concurrent.ConcurrentHashMap
         '[java.util HashMap Collections Map])
 
-(def data1
+(def small-overlapping
   (into [] (map hash-map
      (repeat :samplevalue)
      (concat
@@ -18,9 +18,19 @@
        (shuffle (range 0. 1e5))
        (shuffle (range 0. 1e5))))))
 
-(def data2 (into [] (range 1000)))
+(def big-overlapping
+  (into [] (map hash-map
+     (repeat :samplevalue)
+     (concat
+       (shuffle (range 6e4 1e5))
+       (shuffle (range 6e4 1e5))
+       (shuffle (range 6e4 1e5))
+       (shuffle (range 6e4 1e5))
+       (shuffle (range 6e4 1e5))))))
 
-(def data3
+(def no-overlapping (into [] (range 1000)))
+
+(def bigger-data
   (into [] (map hash-map
      (repeat :samplevalue)
      (concat
@@ -30,22 +40,42 @@
        (shuffle (range 0. 7e5))
        (shuffle (range 0. 7e5))))))
 
-(quick-bench (frequencies data1))
-;; 597 ms
-(quick-bench (x/frequencies data1))
-;; 186 ms
 
-(quick-bench (frequencies (eduction (keep :samplevalue) (map int) data1)))
-;; 337 ms
-(quick-bench (x/frequencies data1 (keep :samplevalue) (map int)))
-;; 128 ms
 
-(quick-bench (frequencies data2))
-;; 324 ms
-(quick-bench (x/frequencies data2))
-;; 0.40 ms
+;; small overlapping
+(quick-bench (frequencies small-overlapping))
+;; 441 ms
+(quick-bench (x/frequencies small-overlapping))
+;; 190 ms
+(binding [x/*mutable* true] (quick-bench (x/frequencies small-overlapping)))
+;; 92ms
 
-(time (dorun (frequencies data3)))
+
+;; bigger overlapping
+(quick-bench (frequencies big-overlapping))
+;; 172ms
+(quick-bench (x/frequencies big-overlapping))
+;; 52ms
+(binding [x/*mutable* true] (quick-bench (x/frequencies big-overlapping)))
+;; 28ms
+
+
+
+;; with xforms
+
+(quick-bench (frequencies (eduction (keep :samplevalue) (map int) small-overlapping)))
+;; 238 ms
+(quick-bench (x/frequencies small-overlapping (keep :samplevalue) (map int)))
+;; 91 ms
+(binding [x/*mutable* true] (quick-bench (x/frequencies small-overlapping (keep :samplevalue) (map int))))
+;; 50 ms
+
+(quick-bench (frequencies no-overlapping))
+;; 335 µs
+(quick-bench (x/frequencies no-overlapping))
+;; 299 µs
+
+(time (dorun (frequencies bigger-data)))
 ;; 4320.984379 ms
-(time (dorun (x/frequencies data3)))
+(time (dorun (x/frequencies bigger-data)))
 ;; 1980.512017 ms

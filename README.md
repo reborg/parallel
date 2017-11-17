@@ -5,13 +5,14 @@ with specific focus on parallelism. It currently contains the following:
 
 Name                  | Type         | Description
 -------------------   | ------------ | ---------------------------------------------------
-* [ ] `x/interleave`  | Transducer   | Like `core/interleave`
+* [x] `x/interleave`  | Transducer   | Like `core/interleave`
 * [ ] `x/drop`        | Transducer   | Parallel-enabled `core/drop`
-* [ ] `x/jfold`       | Reducer      | Enables `reducers/fold` on mutable Java collections
-* [ ] `x/merge-sort`  | Reducer      | Memory efficient parallel merge-sort
-* [ ] `x/mapv`        | Reducer      | Transform a vector in parallel and returns a vector.
-* [ ] `x/filterv`     | Reducer      | Filter a vector in parallel and returns a vector.
-* [ ] `x/frequencies` | Reducer      | Like `core/frequencies` with some restrictions.
+* [ ] `x/jfold`       | Function     | Enables `reducers/fold` on mutable Java collections
+* [ ] `x/merge-sort`  | Function     | Memory efficient parallel merge-sort
+* [x] `x/update-vals` | Function     | Updates all values in a map in parallel.
+* [ ] `x/mapv`        | Function     | Transform a vector in parallel and returns a vector.
+* [ ] `x/filterv`     | Function     | Filter a vector in parallel and returns a vector.
+* [x] `x/frequencies` | Function     | Like `core/frequencies` but in parallel.
 
 Please see below for detailed information on how to use them.
 
@@ -41,7 +42,9 @@ Or in your namespace as:
 
 ### `x/interleave`
 
-### `x/drop`
+### `x/frequencies`
+
+### `x/update-vals`
 
 ## License
 
