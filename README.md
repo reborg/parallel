@@ -1,50 +1,53 @@
-## xduce
+## parallel
 
-`xduce` is a Clojure library of [Transducers](https://clojure.org/reference/transducers) and [Reducers](https://clojure.org/reference/reducers)
-with specific focus on parallelism. It currently contains the following:
+`parallel` is a library of parallel-enabled Clojure functions. They are designed to emulate similar functions already
+present in the standard library (sometimes as a drop-in replacement, sometimes with a radically different semantic) to run
+in parallel on multiple cores on a single machine. It also provides new transducers (and reducers).
+
+It currently contains the following:
 
 Name                  | Type         | Description
 -------------------   | ------------ | ---------------------------------------------------
-* [x] `x/interleave`  | Transducer   | Like `core/interleave`
-* [ ] `x/drop`        | Transducer   | Parallel-enabled `core/drop`
-* [ ] `x/jfold`       | Function     | Enables `reducers/fold` on mutable Java collections
-* [ ] `x/merge-sort`  | Function     | Memory efficient parallel merge-sort
-* [x] `x/update-vals` | Function     | Updates all values in a map in parallel.
-* [ ] `x/mapv`        | Function     | Transform a vector in parallel and returns a vector.
-* [ ] `x/filterv`     | Function     | Filter a vector in parallel and returns a vector.
-* [x] `x/frequencies` | Function     | Like `core/frequencies` but in parallel.
+* [p] `p/interleave`  | Transducer   | Like `core/interleave`
+* [ ] `p/drop`        | Transducer   | Parallel-enabled `core/drop`
+* [ ] `p/jfold`       | Function     | Enables `reducers/fold` on mutable Java collections
+* [ ] `p/merge-sort`  | Function     | Memory efficient parallel merge-sort
+* [p] `p/update-vals` | Function     | Updates all values in a map in parallel.
+* [ ] `p/mapv`        | Function     | Transform a vector in parallel and returns a vector.
+* [ ] `p/filterv`     | Function     | Filter a vector in parallel and returns a vector.
+* [p] `p/frequencies` | Function     | Like `core/frequencies` but in parallel.
 
 Please see below for detailed information on how to use them.
 
 ## How to use the library
 
-Transducers, reducers and related utilities are available through the `xduce` namespace.
+Transducers, reducers and related utilities are available through the `parallel` namespace.
 Add the following to your project dependencies:
 
 ```clojure
-[xduce "0.1"]
+[parallel "0.1"]
 ```
 
 Then require at the REPL with:
 
 ```clojure
-(require '[xduce :as x])
+(require '[parallel :as p])
 ```
 
 Or in your namespace as:
 
 ```clojure
 (ns mynamespace
-  (:require [xduce :as x]))
+  (:require [parallel :as p]))
 ```
 
 ## API Docs
 
-### `x/interleave`
+### `p/interleave`
 
-### `x/frequencies`
+### `p/frequencies`
 
-### `x/update-vals`
+### `p/update-vals`
 
 ## License
 

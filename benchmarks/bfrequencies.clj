@@ -1,6 +1,6 @@
 (ns bfrequencies)
 
-(require '[xduce :as x])
+(require '[parallel :as p])
 (require '[criterium.core :refer [bench quick-bench]])
 (require '[clojure.core.reducers :as r])
 
@@ -45,18 +45,18 @@
 ;; small overlapping
 (quick-bench (frequencies small-overlapping))
 ;; 441 ms
-(quick-bench (x/frequencies small-overlapping))
+(quick-bench (p/frequencies small-overlapping))
 ;; 190 ms
-(binding [x/*mutable* true] (quick-bench (x/frequencies small-overlapping)))
+(binding [p/*mutable* true] (quick-bench (p/frequencies small-overlapping)))
 ;; 92ms
 
 
 ;; bigger overlapping
 (quick-bench (frequencies big-overlapping))
 ;; 172ms
-(quick-bench (x/frequencies big-overlapping))
+(quick-bench (p/frequencies big-overlapping))
 ;; 52ms
-(binding [x/*mutable* true] (quick-bench (x/frequencies big-overlapping)))
+(binding [p/*mutable* true] (quick-bench (p/frequencies big-overlapping)))
 ;; 28ms
 
 
@@ -65,17 +65,17 @@
 
 (quick-bench (frequencies (eduction (keep :samplevalue) (map int) small-overlapping)))
 ;; 238 ms
-(quick-bench (x/frequencies small-overlapping (keep :samplevalue) (map int)))
+(quick-bench (p/frequencies small-overlapping (keep :samplevalue) (map int)))
 ;; 91 ms
-(binding [x/*mutable* true] (quick-bench (x/frequencies small-overlapping (keep :samplevalue) (map int))))
+(binding [p/*mutable* true] (quick-bench (p/frequencies small-overlapping (keep :samplevalue) (map int))))
 ;; 50 ms
 
 (quick-bench (frequencies no-overlapping))
 ;; 335 µs
-(quick-bench (x/frequencies no-overlapping))
+(quick-bench (p/frequencies no-overlapping))
 ;; 299 µs
 
 (time (dorun (frequencies bigger-data)))
 ;; 4320.984379 ms
-(time (dorun (x/frequencies bigger-data)))
+(time (dorun (p/frequencies bigger-data)))
 ;; 1980.512017 ms

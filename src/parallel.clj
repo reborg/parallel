@@ -1,8 +1,8 @@
-(ns xduce
+(ns parallel
   (:refer-clojure :exclude [interleave eduction sequence frequencies])
-  (:require [xduce.educe :as educe]
+  (:require [parallel.educe :as educe]
             [clojure.core.reducers :as r])
-  (:import [xduce.educe Educe]
+  (:import [parallel.educe Educe]
            [java.util.concurrent.atomic AtomicInteger]
            java.util.concurrent.ConcurrentHashMap
            [java.util HashMap Collections Map]))
