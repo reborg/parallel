@@ -68,7 +68,7 @@
 (defn chunkedf [f rf size coll]
   (->> coll (partition-all size) (mapcat f) (reduce rf)))
 
-(deftest drop-test
+(deftest stateful-transducers
   (testing "should drop based on chunk size"
     (is (= (chunkedf #(drop 10 %) + 200 (vec (range 1600)))
            (repeater (r/fold 200 + ((p/drop 10) +) (p/folder (vec (range 1600)))))))
@@ -83,5 +83,8 @@
             42 43 44 45 46 47 48 49 50 51]
            (r/fold "ignored" (r/monoid concat conj) ((p/drop 3) conj) (p/folder (vec (range 52)) 4))))
     (is (= (- 1802 (* 3 8))
-           (count (r/fold "ignored" (r/monoid concat conj) ((p/drop 3) conj) (p/folder (vec (range 1802)) 8)))))))
+           (count (r/fold "ignored" (r/monoid concat conj) ((p/drop 3) conj) (p/folder (vec (range 1802)) 8))))))
+  (testing "p/fold entry point at 32 default chunks"
+    (is (= (chunkedf #(drop 10 %) + (/ 2048 32) (vec (map inc (range 2048))))
+           (p/fold (p/xrf + (drop 10) (map inc)) (vec (range 2048)))))))
 

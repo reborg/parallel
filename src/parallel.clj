@@ -1,6 +1,5 @@
 (ns parallel
-  (:refer-clojure :exclude [interleave eduction sequence frequencies
-                            drop])
+  (:refer-clojure :exclude [interleave eduction sequence frequencies drop])
   (:require [parallel.educe :as educe]
             [clojure.core.reducers :as r])
   (:import [parallel.educe Educe]
@@ -83,11 +82,21 @@
       ks)
     (if *mutable* output (into {} output))))
 
+(defn compose [xrf]
+  (if (vector? xrf)
+    ((last xrf) (first xrf))
+    (xrf)))
+
+(defn xrf [rf & xforms]
+  [rf (apply comp xforms)])
+
 (defn- foldvec
+  "Like standard foldvec, but unwrap reducef before
+  use, triggering any state initialization."
   [v n combinef reducef]
   (cond
     (empty? v) (combinef)
-    (<= (count v) n) (reduce (reducef) (combinef) v)
+    (<= (count v) n) (r/reduce (compose reducef) (combinef) v)
     :else
     (let [split (quot (count v) 2)
           v1 (subvec v 0 split)
@@ -136,3 +145,14 @@
        ((clojure.core/drop n) rf))))
   ([n coll]
    (clojure.core/drop n coll)))
+
+(defn fold
+  "Like reducers fold, but with stateful transducers support.
+  n is the number-of-chunks instead of chunk size.
+  n must be a power of 2 and defaults to 32."
+  ([reducef coll]
+   (fold (first reducef) reducef coll))
+  ([combinef reducef coll]
+   (fold 32 combinef reducef coll))
+  ([n combinef reducef coll]
+   (r/fold ::ignored combinef reducef (folder coll n))))
