@@ -71,20 +71,25 @@
 (deftest stateful-transducers
   (testing "should drop based on chunk size"
     (is (= (chunkedf #(drop 10 %) + 200 (vec (range 1600)))
-           (repeater (r/fold 200 + ((p/drop 10) +) (p/folder (vec (range 1600)))))))
+           (repeater (r/fold 200 + (p/xrf + (drop 10)) (p/folder (vec (range 1600)))))))
     (is (= (chunkedf #(drop 10 %) + 100 (vec (range 204800)))
-           (repeater (r/fold 100 + ((p/drop 10) +) (p/folder (vec (range 204800)))))))
+           (repeater (r/fold 100 + (p/xrf + (drop 10)) (p/folder (vec (range 204800)))))))
     (is (= (chunkedf #(drop 10 %) + 400 (vec (range 1600)))
-           (repeater (r/fold + ((p/drop 10) +) (p/folder (vec (range 1600))))))))
+           (repeater (r/fold + (p/xrf + (drop 10)) (p/folder (vec (range 1600))))))))
   (testing "folding by number of chunks"
     (is (= [3  4  5  6  7  8  9  10 11 12
             16 17 18 19 20 21 22 23 24 25
             29 30 31 32 33 34 35 36 37 38
             42 43 44 45 46 47 48 49 50 51]
-           (r/fold "ignored" (r/monoid concat conj) ((p/drop 3) conj) (p/folder (vec (range 52)) 4))))
+           (r/fold "ignored"
+                   (r/monoid concat conj)
+                   (p/xrf conj (drop 3))
+                   (p/folder (vec (range 52)) 4))))
     (is (= (- 1802 (* 3 8))
-           (count (r/fold "ignored" (r/monoid concat conj) ((p/drop 3) conj) (p/folder (vec (range 1802)) 8))))))
+           (count (r/fold "ignored"
+                          (r/monoid concat conj)
+                          (p/xrf conj (drop 3))
+                          (p/folder (vec (range 1802)) 8))))))
   (testing "p/fold entry point at 32 default chunks"
     (is (= (chunkedf #(drop 10 %) + (/ 2048 32) (vec (map inc (range 2048))))
            (p/fold (p/xrf + (drop 10) (map inc)) (vec (range 2048)))))))
-

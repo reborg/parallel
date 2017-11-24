@@ -82,12 +82,17 @@
       ks)
     (if *mutable* output (into {} output))))
 
-(defn compose [xrf]
+(defn- compose [xrf]
   (if (vector? xrf)
     ((last xrf) (first xrf))
     (xrf)))
 
-(defn xrf [rf & xforms]
+(defn xrf
+  "Expects a reducing function rf and a list
+  of transducers (or comp thereof). Use with
+  p/fold to compose any chain of transducers applied to
+  a reducing function to run in parallel."
+  [rf & xforms]
   [rf (apply comp xforms)])
 
 (defn- foldvec
@@ -138,16 +143,9 @@
      (coll-fold [this _ combinef reducef]
        (foldvec coll (chunk-size coll nchunks) combinef reducef)))))
 
-(defn drop
-  ([n]
-   (fn [rf]
-     (fn []
-       ((clojure.core/drop n) rf))))
-  ([n coll]
-   (clojure.core/drop n coll)))
-
 (defn fold
   "Like reducers fold, but with stateful transducers support.
+  Expect reducef to be built using p/xrf to defer initialization.
   n is the number-of-chunks instead of chunk size.
   n must be a power of 2 and defaults to 32."
   ([reducef coll]
