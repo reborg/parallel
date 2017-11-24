@@ -85,7 +85,7 @@
 (defn- compose [xrf]
   (if (vector? xrf)
     ((last xrf) (first xrf))
-    (xrf)))
+    xrf))
 
 (defn xrf
   "Expects a reducing function rf and a list

@@ -92,4 +92,9 @@
                           (p/folder (vec (range 1802)) 8))))))
   (testing "p/fold entry point at 32 default chunks"
     (is (= (chunkedf #(drop 10 %) + (/ 2048 32) (vec (map inc (range 2048))))
-           (p/fold (p/xrf + (drop 10) (map inc)) (vec (range 2048)))))))
+           (p/fold (p/xrf + (drop 10) (map inc)) (vec (range 2048))))))
+  (testing "p/fold VS r/fold on stateless xducers should be the same"
+    (let [v (vec (range 10000))]
+      (is (= (r/fold + ((comp (map inc) (filter odd?)) +) v)
+             (p/fold (p/xrf + (map inc) (filter odd?)) v)
+             (p/fold + ((comp (map inc) (filter odd?)) +) v))))))
