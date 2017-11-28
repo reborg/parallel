@@ -1,6 +1,7 @@
 (ns parallel
-  (:refer-clojure :exclude [interleave eduction sequence frequencies drop])
+  (:refer-clojure :exclude [interleave eduction sequence frequencies])
   (:require [parallel.educe :as educe]
+            [parallel.foldmap :as fmap]
             [clojure.core.reducers :as r])
   (:import [parallel.educe Educe]
            [java.util.concurrent.atomic AtomicInteger]
@@ -133,15 +134,41 @@
        last
        (apply max)))
 
-(defn folder
-  ([coll]
-   (reify r/CollFold
-     (coll-fold [this n combinef reducef]
-       (foldvec coll n combinef reducef))))
-  ([coll nchunks]
-   (reify r/CollFold
-     (coll-fold [this _ combinef reducef]
-       (foldvec coll (chunk-size coll nchunks) combinef reducef)))))
+(defprotocol Folder
+  (folder [coll]
+          [coll nchunks]))
+
+(extend-protocol Folder
+  Object
+  (folder
+    ([coll]
+     (reify r/CollFold
+       (coll-fold [this n combinef reducef]
+         (r/reduce reducef (combinef) coll))))
+    ([coll nchunks]
+     (reify r/CollFold
+       (coll-fold [this _ combinef reducef]
+         (r/reduce reducef (combinef) coll)))))
+  clojure.lang.IPersistentVector
+  (folder
+    ([coll]
+     (reify r/CollFold
+       (coll-fold [this n combinef reducef]
+         (foldvec coll n combinef reducef))))
+    ([coll nchunks]
+     (reify r/CollFold
+       (coll-fold [this _ combinef reducef]
+         (foldvec coll (chunk-size coll nchunks) combinef reducef)))))
+  clojure.lang.PersistentHashMap
+  (folder
+    ([coll]
+     (reify r/CollFold
+       (coll-fold [m n combinef reducef]
+         (fmap/fold coll 512 combinef reducef))))
+    ([coll nchunks]
+     (reify r/CollFold
+       (coll-fold [m n combinef reducef]
+         (fmap/fold coll 512 combinef reducef))))))
 
 (defn fold
   "Like reducers fold, but with stateful transducers support.

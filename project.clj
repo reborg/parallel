@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]]
   :source-paths ["src" "playground" "benchmarks"]
+  :java-source-paths ["java"]
   :profiles {:dev {:dependencies [[criterium  "0.4.4"]]
                    :plugins []}}
   :jvm-opts ["-Xmx2g" "-server"]

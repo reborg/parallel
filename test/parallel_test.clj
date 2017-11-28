@@ -97,4 +97,12 @@
     (let [v (vec (range 10000))]
       (is (= (r/fold + ((comp (map inc) (filter odd?)) +) v)
              (p/fold (p/xrf + (map inc) (filter odd?)) v)
-             (p/fold + ((comp (map inc) (filter odd?)) +) v))))))
+             (p/fold + ((comp (map inc) (filter odd?)) +) v)))))
+  (testing "hashmaps, not just vectors"
+    (is (= {\a [21] \z [23] \h [10 12]}
+           (p/fold
+             (r/monoid #(merge-with into %1 %2) (constantly {}))
+             (fn [m k v]
+               (let [c (Character/toLowerCase (first k))]
+                 (assoc m c (conj (get m c []) v))))
+             (hash-map "abba" 21 "zubb" 23 "hello" 10 "hops" 12))))))
