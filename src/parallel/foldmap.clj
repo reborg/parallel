@@ -1,6 +1,8 @@
 (ns parallel.foldmap
   (:require [clojure.core.reducers :as r])
   (:import [clojure.lang
+            RT
+            IFn
             Get
             PersistentHashMap
             PersistentHashMap$INode
@@ -13,11 +15,14 @@
 (set! *warn-on-reflection* false)
 
 (defn- agetter
-  "Trickiness, this needs to be indirected ATM.
-  Prevent Clojure from inlining the static call
-  into a class that doesn't have protected access
-  to clojure.lang. Will throw reflection warning."
+  "Trickiness. This needs to be an indirected call.
+  It prevents Clojure from inlining Get/array implementation
+  into the generated function class. The generated parallel.foldmap
+  package class doesn't have protected access to clojure.lang.
+  Will always throw a reflection warning."
   [node] (Get/array node))
+
+(set! *warn-on-reflection* true)
 
 (defn- fold-tasks [^ArrayList tasks combinef]
   (cond
@@ -29,10 +34,36 @@
             (combinef (fold-tasks t1 combinef)
                       (#'r/fjjoin forked)))))
 
+(defn- compose
+  "As a consequence, reducef cannot be a vector."
+  [xrf]
+  (if (vector? xrf)
+    ((last xrf) (first xrf))
+    xrf))
+
 (defprotocol Foldmap
-  (fold [m n combinef reducef]))
+  (fold [m n combinef reducef])
+  (kvreduce [node f init]))
 
 (extend-protocol Foldmap
+
+  (Class/forName "[Ljava.lang.Object;")
+  (fold [m n combinef reducef]
+    (throw (RuntimeException. "Not implemented")))
+  (kvreduce [node f init]
+    ;; workaround type hints are lost [CLJ-1381]
+    (let [^"[Ljava.lang.Object;" node node ^Object init init]
+      (loop [idx 0 res init]
+        (if (or (RT/isReduced res) (>= idx (alength ^"[Ljava.lang.Object;" node)))
+          res
+          (let [idx+1 (unchecked-inc idx)
+                idx+2 (unchecked-add idx 2)]
+            (if (nil? (aget node idx))
+              (let [node (aget node idx+1)]
+                (if (nil? node)
+                  (recur idx+2 res)
+                  (recur idx+2 (kvreduce node f res))))
+              (recur idx+2 (f res [(aget node idx) (aget node idx+1)]))))))))
 
   PersistentHashMap
   (fold [m n combinef reducef]
@@ -42,6 +73,8 @@
          (if (Get/hasNullValue m)
            (combinef ret (reducef (combinef) nil (Get/nullValue m)))
            ret))))
+  (kvreduce [node f init]
+    (throw (RuntimeException. "Not implemented")))
 
   PersistentHashMap$ArrayNode
   (fold [m n combinef reducef]
@@ -53,13 +86,28 @@
                 (.add tasks
                       #(fold node n combinef reducef)))))
       (fold-tasks tasks combinef)))
+  (kvreduce [node f init]
+    (let [^"[Ljava.lang.Object;" node node
+          ^"[Lclojure.lang.PersistentHashMap$INode;" array (agetter node)]
+      (loop [idx 0 res init]
+        (if (or (RT/isReduced res) (>= idx (alength node)))
+          res
+          (if (nil? (aget array idx))
+            (recur (unchecked-inc idx) res)
+            (recur (unchecked-inc idx) (kvreduce node f res)))))))
 
   PersistentHashMap$BitmapIndexedNode
   (fold [m n combinef reducef]
     (let [^objects array (agetter m)]
-      (Get/kvreduce array reducef (combinef))))
+      (kvreduce array (compose reducef) (combinef))))
+  (kvreduce [node f init]
+    (let [^"[Lclojure.lang.PersistentHashMap$INode;" array (agetter node)]
+      (kvreduce array f init)))
 
   PersistentHashMap$HashCollisionNode
   (fold [m n combinef reducef]
     (let [^objects array (agetter m)]
-      (Get/kvreduce array reducef (combinef)))))
+      (kvreduce array (compose reducef) (combinef))))
+  (kvreduce [node f init]
+    (let [^"[Lclojure.lang.PersistentHashMap$INode;" array (agetter node)]
+      (kvreduce array f init))))

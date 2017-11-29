@@ -102,7 +102,13 @@
     (is (= {\a [21] \z [23] \h [10 12]}
            (p/fold
              (r/monoid #(merge-with into %1 %2) (constantly {}))
-             (fn [m k v]
+             (fn [m [k v]]
                (let [c (Character/toLowerCase (first k))]
                  (assoc m c (conj (get m c []) v))))
-             (hash-map "abba" 21 "zubb" 23 "hello" 10 "hops" 12))))))
+             (hash-map "abba" 21 "zubb" 23 "hello" 10 "hops" 12)))))
+  (testing "folding hashmaps with transducers"
+    (is (= {0 1 1 2 2 3 3 4}
+           (p/fold
+             (r/monoid #(merge-with into %1 %2) (constantly {}))
+             (p/xrf conj (map (fn [[k v]] [k (inc v)])))
+             (hash-map 0 0 1 1 2 2 3 3))))))

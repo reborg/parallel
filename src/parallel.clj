@@ -83,7 +83,9 @@
       ks)
     (if *mutable* output (into {} output))))
 
-(defn- compose [xrf]
+(defn- compose
+  "As a consequence, reducef cannot be a vector."
+  [xrf]
   (if (vector? xrf)
     ((last xrf) (first xrf))
     xrf))
@@ -94,7 +96,9 @@
   p/fold to compose any chain of transducers applied to
   a reducing function to run in parallel."
   [rf & xforms]
-  [rf (apply comp xforms)])
+  (if (empty? xforms)
+    rf
+    [rf (apply comp xforms)]))
 
 (defn- foldvec
   "Like standard foldvec, but unwrap reducef before
