@@ -109,6 +109,14 @@
   (testing "folding hashmaps with transducers"
     (is (= {0 1 1 2 2 3 3 4}
            (p/fold
-             (r/monoid #(merge-with into %1 %2) (constantly {}))
+             (r/monoid merge (constantly {}))
              (p/xrf conj (map (fn [[k v]] [k (inc v)])))
-             (hash-map 0 0 1 1 2 2 3 3))))))
+             (hash-map 0 0 1 1 2 2 3 3)))))
+  (testing "exercising all code with larger maps"
+    (is (= 999
+           ((p/fold
+             (r/monoid merge (constantly {}))
+             (p/xrf conj
+                    (filter (fn [[k v]] (even? k)))
+                    (map (fn [[k v]] [k (inc v)])))
+             (zipmap (range 10000) (range 10000))) 998)))))

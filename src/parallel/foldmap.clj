@@ -1,16 +1,13 @@
 (ns parallel.foldmap
   (:require [clojure.core.reducers :as r])
-  (:import [clojure.lang
-            RT
-            IFn
-            Get
+  (:import [clojure.lang RT Get
             PersistentHashMap
             PersistentHashMap$INode
             PersistentHashMap$ArrayNode
             PersistentHashMap$BitmapIndexedNode
             PersistentHashMap$HashCollisionNode]
            [java.util.concurrent Callable]
-           [java.util ArrayList]))
+           [java.util ArrayList List]))
 
 (set! *warn-on-reflection* false)
 
@@ -24,7 +21,7 @@
 
 (set! *warn-on-reflection* true)
 
-(defn- fold-tasks [^ArrayList tasks combinef]
+(defn- fold-tasks [^List tasks combinef]
   (cond
     (.isEmpty tasks) (combinef)
     (== 1 (.size tasks)) (.call ^Callable (.get tasks 0))
@@ -80,11 +77,10 @@
   (fold [m n combinef reducef]
     (let [tasks (ArrayList.)
           ^"[Lclojure.lang.PersistentHashMap$INode;" array (agetter m)]
-      (amap array idx ret
-            (let [node (aget array idx)]
-              (if (not (nil? node))
-                (.add tasks
-                      #(fold node n combinef reducef)))))
+      (dotimes [idx (alength array)]
+        (let [node (aget array idx)]
+          (if (not (nil? node))
+            (.add tasks #(fold node n combinef reducef)))))
       (fold-tasks tasks combinef)))
   (kvreduce [node f init]
     (let [^"[Ljava.lang.Object;" node node
