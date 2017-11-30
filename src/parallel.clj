@@ -127,16 +127,21 @@
        (fn [n] [(quot n 2) (- n (quot n 2))]) %)
     [(count coll)]))
 
+(defn show-chunks
+  "Shows chunk sizes for the desired chunk number
+  on a given collection coll."
+  [coll nchunks]
+  {:pre [(== (bit-and nchunks (- nchunks)) nchunks)]}
+  (->> (splitting coll)
+       (take-while #(<= (count %) nchunks))
+       last))
+
 (defn chunk-size
   "Calculates the necessary chunk-size to obtain
   the given number of splits during a parallel fold.
   nchunks needs to be a power of two."
   [coll nchunks]
-  {:pre [(== (bit-and nchunks (- nchunks)) nchunks)]}
-  (->> (splitting coll)
-       (take-while #(<= (count %) nchunks))
-       last
-       (apply max)))
+  (apply max (show-chunks coll nchunks)))
 
 (defprotocol Folder
   (folder [coll]
