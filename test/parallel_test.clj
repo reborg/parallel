@@ -120,3 +120,9 @@
                     (filter (fn [[k v]] (even? k)))
                     (map (fn [[k v]] [k (inc v)])))
              (zipmap (range 10000) (range 10000))) 998)))))
+
+(deftest counting
+  (testing "count a coll"
+    (is (= 100000 (p/count (map inc) (range 1e5))))
+    (is (= (reduce + (range 50)) (p/count (comp (mapcat range)) (range 50))))))
+

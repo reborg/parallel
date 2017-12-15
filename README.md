@@ -1,26 +1,33 @@
 ## parallel
 
-`parallel` is a library of parallel-enabled (multi-core CPU) Clojure functions. Some are designed to emulate the related functions
+`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate functions
 in the standard library (sometimes as a drop-in replacement, sometimes with a different semantic).
-The library also provides some new transducers and supporting utilities. It has been tested and benchmarked, but please
-file a ticket if you find the next bug.
+The library also provides a few new transducers and supporting utilities.
 
-#### Content (in progress)
+#### Features (in progress)
 
-Name                  | Type         | Description
--------------------   | ------------ | ---------------------------------------------------
-* [x] `p/interleave`  | Transducer   | Like `core/interleave`
-* [x] `p/fold`        | Reducers     | Like `r/fold` also supporting stateful transducers
-* [x] `p/fold`        | Reducers     | Enable transducers on hash-map folding.
-* [ ] `p/fold`        | Reducers     | Enables `r/fold` on (thread-safe) Java collections
-* [ ] `p/fold`        | Reducers     | Enables `r/fold` Cat objects
-* [ ] `p/fold`        | Reducers     | `p/fold` to operate on a group of keys for hash-maps.
-* [ ] `p/merge-sort`  | Function     | Memory efficient parallel merge-sort
-* [ ] `p/eduction`    | Transducers  | Alternative iterators for `eduction` (experimental)
-* [x] `p/update-vals` | Function     | Updates values in a map in parallel.
-* [ ] `p/mapv`        | Function     | Transform a vector in parallel and returns a vector.
-* [ ] `p/filterv`     | Function     | Filter a vector in parallel and returns a vector.
-* [x] `p/frequencies` | Function     | Like `core/frequencies` but in parallel.
+Name                  | Description
+-------------------   | ---------------------------------------------------
+* [x] `p/fold`        | Like `r/fold` also supporting stateful transducers
+* [x] `p/fold`        | Enable transducers on hash-map folding.
+* [ ] `p/fold`        | Enable `r/fold` on (thread-safe) Java collections
+* [ ] `p/fold`        | Enable `r/fold` Cat objects
+* [ ] `p/fold`        | `p/fold` to operate on a group of keys for hash-maps.
+* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
+* [x] `p/count`       | Parallel count
+* [ ] `p/eduction`    | Weakrefs caching iterator for `eduction`
+* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
+* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
+* [x] `p/update-vals` | Updates values in a map in parallel.
+* [x] `p/interleave`  | Like `core/interleave`
+* [x] `p/frequencies` | Like `core/frequencies` but in parallel.
+
+#### TODO:
+
+* [ ] All functions benchmarked and documented
+* [ ] Clojure 1.7->1.9 compatibility tests
+* [ ] Jar on Clojars
+* [ ] CI
 
 ### How to use the library
 
@@ -89,14 +96,14 @@ Assuming there are 4 cores available, the example above executes on 4 parallel t
 * The reducing function "+" is applied on the items on each chunk: 15624, 46624, 77624, 108624
 * The combining function is again "+", resulting in the final sums: (+ (+ 15624 46624) (+ 77624 108624)) which is 248496.
 
-It can be trickier for arbitrary collection sizes to see what is the best strategy in terms of chunk sizes and number. The utility function `p/show-chunks` can be used to predict the splitting of a parallel calculation, so parameters can be adjusted accordingly. Here's what happens if you have a vector of 9629 items and you'd like 8 chunks to be created. Some of them will be bigger, other will be smaller:
+It can be tricky for arbitrary collection sizes to see what is the best strategy in terms of chunk size or number. The utility function `p/show-chunks` can be used to predict the splitting for a parallel calculation. `p/fold` parameters can be adjusted accordingly. Here's what happens if you have a vector of 9629 items and you'd like 8 chunks to be created. Some of them will be bigger, other will be smaller:
 
 ```clojure
 (p/show-chunks (vec (range 9629)) 8)
 ;; (1203 1204 1203 1204 1203 1204 1204 1204)
 ```
 
-`p/fold` also enables transducers for hash-maps, not just vectors. A hash-map can be folded with transducers (in parallel) like this:
+`p/fold` also allows transducers on hash-maps, not just vectors. A hash-map can be folded with transducers (in parallel) like this:
 
 ```clojure
 (require '[clojure.core.reducers :refer [monoid]])
@@ -114,12 +121,47 @@ It can be trickier for arbitrary collection sizes to see what is the best strate
 ;; 665
 ```
 
-As you can see, transducing functions need to accept a single key-value pair argument. In this case they return another pair (because we are building back another map) but that's not required by the library.
+The single argument for transducers is a vector pair containing a key and a value. In this case each transducer returns another pair to build another map (but that's not required).
 
-#### Caveats and known problems
+Caveats and known problems:
 
-* Stateful transducers like `dedupe` and `distinct` that operates correctly at the chunk level can bring back duplicates once combined back into the final result.
-* Stateful transducers can be used with `p/fold` on hash-maps, but given they are initialized by chunk and a chunk is a key-value pair, they are not currently of much value. I'm investigating better strategies, such as changing the chunk size to operate on a group of keys instead.
+* Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates.
+* Stateful transducers can be used with `p/fold` on hash-maps as well, but given that each chunk contains a single key-value pair by default, they are not currently of big value. The library might introduce different strategies in the future to group key-value pairs as sub-maps.
+
+### `p/count`
+
+`p/count` can speed up counting on collections when non-trivial transformations on large collections are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements:
+
+```clojure
+(def xform
+  (comp
+    (filter odd?)
+    (map inc)
+    (map #(mod % 50))
+    (mapcat range)
+    (map str)))
+
+(p/count xform (range 100000))
+;; 1200000
+```
+
+`p/count` supports stateful transducers. In this example we are dropping 6250 elements from each of the 32 chunks (32x6250=200000):
+
+```clojure
+(def xform
+  (comp
+    (filter odd?)
+    (map inc)
+    (map #(mod % 50))
+    (mapcat range)
+    (map str)
+    (drop 6250)))
+
+(p/count xform (range 100000))
+;; 1000000
+```
+
+`p/count` is an eager operation, transforming "coll" into a vector if it's not already a foldable collection (vectors, maps and reducers/Cat objects).
 
 ### `p/interleave`
 
@@ -130,6 +172,4 @@ As you can see, transducing functions need to accept a single key-value pair arg
 ## License
 
 Copyright © 2017 Renzo Borgatti @reborg http://reborg.net
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.

@@ -1,12 +1,13 @@
 (ns parallel
-  (:refer-clojure :exclude [interleave eduction sequence frequencies])
+  (:refer-clojure :exclude [interleave eduction sequence frequencies count])
   (:require [parallel.educe :as educe]
             [parallel.foldmap :as fmap]
             [clojure.core.reducers :as r])
-  (:import [parallel.educe Educe]
-           [java.util.concurrent.atomic AtomicInteger]
-           java.util.concurrent.ConcurrentHashMap
-           [java.util HashMap Collections Map]))
+  (:import
+    [parallel.educe Educe]
+    [java.util.concurrent.atomic AtomicInteger AtomicLong]
+    java.util.concurrent.ConcurrentHashMap
+    [java.util HashMap Collections Map]))
 
 (set! *warn-on-reflection* true)
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
@@ -46,6 +47,11 @@
                  (rf step filler))))
            (reduced result)))))))
 
+(defn- foldable? [coll]
+  (or (map? coll)
+      (vector? coll)
+      (instance? clojure.core.reducers.Cat coll)))
+
 (defn frequencies
   "Like clojure.core/frequencies, but executes in parallel.
   It takes an optional list of transducers to apply to coll before
@@ -53,8 +59,8 @@
     * It does not support nil values.
     * Only stateless transducers are allowed in xforms."
   [coll & xforms]
-  (let [coll (into [] coll)
-        m (ConcurrentHashMap. (quot (count coll) 2) 0.75 ncpu)
+  (let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([_ _]))
         rf (fn [^Map m k]
              (let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
@@ -74,7 +80,7 @@
     * Does not support nil values."
   [^Map input f]
   (let [ks (into [] (keys input))
-        output (ConcurrentHashMap. (count ks) 1. ncpu)]
+        output (ConcurrentHashMap. (clojure.core/count ks) 1. ncpu)]
     (r/fold
       (fn ([] output) ([_ _]))
       (fn [^Map m k]
@@ -106,11 +112,11 @@
   [v n combinef reducef]
   (cond
     (empty? v) (combinef)
-    (<= (count v) n) (r/reduce (compose reducef) (combinef) v)
+    (<= (clojure.core/count v) n) (r/reduce (compose reducef) (combinef) v)
     :else
-    (let [split (quot (count v) 2)
+    (let [split (quot (clojure.core/count v) 2)
           v1 (subvec v 0 split)
-          v2 (subvec v split (count v))
+          v2 (subvec v split (clojure.core/count v))
           fc (fn [child] #(foldvec child n combinef reducef))]
       (#'r/fjinvoke
         #(let [f1 (fc v1)
@@ -125,7 +131,7 @@
   (iterate
     #(mapcat
        (fn [n] [(quot n 2) (- n (quot n 2))]) %)
-    [(count coll)]))
+    [(clojure.core/count coll)]))
 
 (defn show-chunks
   "Shows chunk sizes for the desired chunk number
@@ -133,7 +139,7 @@
   [coll nchunks]
   {:pre [(== (bit-and nchunks (- nchunks)) nchunks)]}
   (->> (splitting coll)
-       (take-while #(<= (count %) nchunks))
+       (take-while #(<= (clojure.core/count %) nchunks))
        last))
 
 (defn chunk-size
@@ -190,3 +196,14 @@
    (fold 32 combinef reducef coll))
   ([n combinef reducef coll]
    (r/fold ::ignored combinef reducef (folder coll n))))
+
+(defn count
+  ([xform coll]
+   (count 32 xform coll))
+  ([n xform coll]
+   (let [coll (if (foldable? coll) coll (into [] coll))
+         cnt (AtomicLong. 0)
+         reducef (xrf (fn [_ _] (.incrementAndGet cnt)) xform)
+         combinef (constantly cnt)]
+     (fold n combinef reducef coll)
+     (.get cnt))))
