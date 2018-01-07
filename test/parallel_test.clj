@@ -126,3 +126,19 @@
     (is (= 100000 (p/count (map inc) (range 1e5))))
     (is (= (reduce + (range 50)) (p/count (comp (mapcat range)) (range 50))))))
 
+(deftest grouping
+  (testing "sanity"
+    (is (= 5000 (count ((p/group-by odd? (range 10000)) true)))))
+(testing "with xducers"
+    (is (= 1667 (count ((p/group-by odd? (range 10000) (map inc) (filter #(zero? (mod % 3)))) true)))))
+  (testing "anagrams"
+    (let [dict (slurp "test/words")]
+      (is (= #{"caret" "carte" "cater" "crate"
+               "creat" "creta" "react" "recta" "trace"}
+             (into #{}
+                   (->> dict
+                        (re-seq #"\S+")
+                        (p/group-by sort)
+                        (sort-by (comp count second) >)
+                        (map second)
+                        first)))))))

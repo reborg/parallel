@@ -1,13 +1,13 @@
 (ns parallel
-  (:refer-clojure :exclude [interleave eduction sequence frequencies count])
+  (:refer-clojure :exclude [interleave eduction sequence frequencies count group-by])
   (:require [parallel.educe :as educe]
             [parallel.foldmap :as fmap]
             [clojure.core.reducers :as r])
   (:import
     [parallel.educe Educe]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
-    java.util.concurrent.ConcurrentHashMap
-    [java.util HashMap Collections Map]))
+    [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
+    [java.util HashMap Collections Queue Map]))
 
 (set! *warn-on-reflection* true)
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
@@ -207,3 +207,43 @@
          combinef (constantly cnt)]
      (fold n combinef reducef coll)
      (.get cnt))))
+
+(extend-protocol clojure.core.protocols/IKVReduce
+  java.util.Map
+  (kv-reduce
+    [amap f init]
+    (let [^java.util.Iterator iter (.. amap entrySet iterator)]
+      (loop [ret init]
+        (if (.hasNext iter)
+          (let [^java.util.Map$Entry kv (.next iter)
+                ret (f ret (.getKey kv) (.getValue kv))]
+            (if (reduced? ret)
+              @ret
+              (recur ret)))
+          ret)))))
+
+(defn group-by
+  "Similar to core/group-by, but executes in parallel.
+  It takes an optional list of transducers to apply to the
+  items in coll before generating the groups. Differently
+  from core/group-by, the order of the items in each
+  value vector can change between runs. It's generally 2x-5x faster
+  than core/group-by (without xducers). If dealing with a Java mutable
+  map with Queue type values is not a problem, a further 2x
+  speedup can be achieved by:
+        (binding [p/*mutable* true] (p/group-by f coll))
+  Restrictions:
+    * It does not support nil values.
+    * Only stateless transducers are allowed in xforms."
+  [f coll & xforms]
+  (let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+        combinef (fn ([] m) ([m1 m2]))
+        rf (fn [^Map m x]
+             (let [k (f x)
+                   ^Queue a (or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
+               (when a (.add a x))
+               m))
+        reducef (if (seq xforms) ((apply comp xforms) rf) rf)]
+    (r/fold combinef reducef coll)
+    (if *mutable* m (persistent! (reduce-kv (fn [m k v] (assoc! m k (vec v))) (transient {}) m)))))

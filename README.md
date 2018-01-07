@@ -1,33 +1,40 @@
 ## parallel
 
-`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate functions
-in the standard library (sometimes as a drop-in replacement, sometimes with a different semantic).
-The library also provides a few new transducers and supporting utilities.
+`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate already existing functions
+in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
+The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-#### Features (in progress)
+#### Content
 
 Name                  | Description
 -------------------   | ---------------------------------------------------
 * [x] `p/fold`        | Like `r/fold` also supporting stateful transducers
-* [x] `p/fold`        | Enable transducers on hash-map folding.
-* [ ] `p/fold`        | Enable `r/fold` on (thread-safe) Java collections
-* [ ] `p/fold`        | Enable `r/fold` Cat objects
-* [ ] `p/fold`        | `p/fold` to operate on a group of keys for hash-maps.
-* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
-* [x] `p/count`       | Parallel count
-* [ ] `p/eduction`    | Weakrefs caching iterator for `eduction`
-* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
-* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
 * [x] `p/update-vals` | Updates values in a map in parallel.
 * [x] `p/interleave`  | Like `core/interleave`
-* [x] `p/frequencies` | Like `core/frequencies` but in parallel.
+* [x] `p/frequencies` | Like `core/frequencies`
+* [x] `p/count`       | Parallel count
+* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
+* [ ] `p/split-by`    | Splitting transducer based on contiguous elements.
+* [ ] `p/group-by`    | Parallel `core/group-by`
+* [ ] `p/eduction`    | Pluggable iterators for `eduction`
+* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
+* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
+* [ ] A `stateless?` predicate that can tell me if an xform is stateless or not
+* [ ] `p/frequencies` Enable for stateful transducers.
+* [ ] `p/fold` Enable extend to (thread-safe) Java collections
+* [ ] `p/fold` Enable extend on Cat objects
+* [ ] `p/fold` operates on a group of keys for hash-maps.
+* [ ] A foldable reader of some sort for large files.
 * [ ] All functions benchmarked and documented
 * [ ] Clojure 1.7->1.9 compatibility tests
+* [ ] Generative testing?
 * [ ] Jar on Clojars
 * [ ] CI
+* [x] `p/update-vals` Enable for stateful transducers.
+* [x] `p/fold` Enable transducers on hash-map folding.
 
 ### How to use the library
 

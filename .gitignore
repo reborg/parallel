@@ -11,3 +11,5 @@ pom.xml.asc
 .hg/
 playground
 doc
+appcds.cache
+appcds.classlist
