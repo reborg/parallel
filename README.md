@@ -6,19 +6,19 @@ The library also provides additional transducers (not necessarily for parallel u
 
 #### Content
 
-Name                  | Description
--------------------   | ---------------------------------------------------
-* [x] `p/fold`        | Like `r/fold` also supporting stateful transducers
-* [x] `p/update-vals` | Updates values in a map in parallel.
-* [x] `p/interleave`  | Like `core/interleave`
-* [x] `p/frequencies` | Like `core/frequencies`
-* [x] `p/count`       | Parallel count
-* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
-* [ ] `p/split-by`    | Splitting transducer based on contiguous elements.
-* [ ] `p/group-by`    | Parallel `core/group-by`
-* [ ] `p/eduction`    | Pluggable iterators for `eduction`
-* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
-* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
+|Name                  | Description
+|-------------------   | ---------------------------------------------------
+|* [x] `p/fold`        | Like `r/fold` also supporting stateful transducers
+|* [x] `p/update-vals` | Updates values in a map in parallel.
+|* [x] `p/interleave`  | Like `core/interleave`
+|* [x] `p/frequencies` | Like `core/frequencies`
+|* [x] `p/count`       | Parallel count
+|* [x] `p/group-by`    | Parallel `core/group-by`
+|* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
+|* [ ] `p/split-by`    | Splitting transducer based on contiguous elements.
+|* [ ] `p/eduction`    | Pluggable iterators for `eduction`
+|* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
+|* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
