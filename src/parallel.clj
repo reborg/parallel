@@ -52,32 +52,13 @@
       (vector? coll)
       (instance? clojure.core.reducers.Cat coll)))
 
-(defn frequencies
-  "Like clojure.core/frequencies, but executes in parallel.
-  It takes an optional list of transducers to apply to coll before
-  the frequency is calculated. Restrictions:
-    * It does not support nil values.
-    * Only stateless transducers are allowed in xforms."
-  [coll & xforms]
-  (let [coll (if (foldable? coll) coll (into [] coll))
-        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
-        combinef (fn ([] m) ([_ _]))
-        rf (fn [^Map m k]
-             (let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
-               (when v (.incrementAndGet v))
-               m))
-        reducef (if (seq xforms) ((apply comp xforms) rf) rf)]
-    (r/fold combinef reducef coll)
-    (if *mutable* m (into {} m))))
-
 (defn update-vals
   "Use f to update the values of a map in parallel. It performs well
   with non-trivial f, otherwise is outperformed by reduce-kv.
   For larger maps (> 100k keys), the final transformation
   from mutable to persistent dominates over trivial f trasforms.
-  You can access the raw mutable result setting the dynamic
-  binding *mutable* to true. Restrictions:
-    * Does not support nil values."
+  You can access the raw mutable java.util.Map by setting the dynamic
+  binding *mutable* to true. Restrictions: does not support nil values."
   [^Map input f]
   (let [ks (into [] (keys input))
         output (ConcurrentHashMap. (clojure.core/count ks) 1. ncpu)]
@@ -244,3 +225,18 @@
                m))]
     (fold combinef (apply xrf rf xforms) coll)
     (if *mutable* m (persistent! (reduce-kv (fn [m k v] (assoc! m k (vec v))) (transient {}) m)))))
+
+(defn frequencies
+  "Like clojure.core/frequencies, but executes in parallel.
+  It takes an optional list of transducers to apply to coll before
+  the frequency is calculated. It does not support nil values."
+  [coll & xforms]
+  (let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+        combinef (fn ([] m) ([_ _]))
+        rf (fn [^Map m k]
+             (let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+               (when v (.incrementAndGet v))
+               m))]
+    (fold combinef (apply xrf rf xforms) coll)
+    (if *mutable* m (into {} m))))

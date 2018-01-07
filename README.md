@@ -4,6 +4,8 @@
 in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
+Status: project is public for feedback, but not yet on Clojars.
+
 #### Content
 
 |Name                  | Description
@@ -16,14 +18,13 @@ The library also provides additional transducers (not necessarily for parallel u
 |* [x] `p/group-by`    | Parallel `core/group-by`
 |* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
 |* [ ] `p/split-by`    | Splitting transducer based on contiguous elements.
-|* [ ] `p/eduction`    | Pluggable iterators for `eduction`
+|* [ ] `p/eduction`    | Soft reference caching iterators for `eduction`
 |* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
 |* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
-* [ ] A `stateless?` predicate that can tell me if an xform is stateless or not
-* [ ] `p/frequencies` Enable for stateful transducers.
+* [ ] A `stateless?` predicate that can tell me if an xform is stateless (for educe)
 * [ ] `p/fold` Enable extend to (thread-safe) Java collections
 * [ ] `p/fold` Enable extend on Cat objects
 * [ ] `p/fold` operates on a group of keys for hash-maps.
@@ -35,6 +36,7 @@ The library also provides additional transducers (not necessarily for parallel u
 * [ ] CI
 * [x] `p/update-vals` Enable for stateful transducers.
 * [x] `p/fold` Enable transducers on hash-map folding.
+* [x] `p/frequencies` Enable for stateful transducers.
 
 ### How to use the library
 
@@ -88,7 +90,7 @@ This is what `p/xrf` is designed for. `p/xrf` is a wrapping utility that hides t
 
 `p/xrf` makes sure that stateful transducer state is allocated at each chunk instead of each thread (the "chunk" is the portion of the initial collection that is not subject to any further splitting). This is a drastic departure from the semantic of the same transducers when used sequentially on the whole input. The first practical implication is that operations like `take`, `drop`, `partition` etc. are isolated in their own chunk and don't see each other state (for example, `(drop 1)` would remove the first element from each chunk, not just the first element from the whole input). The second consequence is that the result is now dependent (consistently) on the number of chunks.
 
-To enable easier design of parallel algorithms, you can pass `p/fold` a number "n" of desired chunks for the parallel computation (n has to be a power of 2 and it defaults to 32 by default). Note the difference: with `(r/fold)` the computation is chunk-size driven by "n", the desired chunk size (default to 512). With `(p/fold)` the computation is chunk-number driven by "n" the number of desired chunks to compute in parallel:
+To enable easier design of parallel algorithms, you can pass `p/fold` a number "n" of desired chunks for the parallel computation (n has to be a power of 2 and it defaults to 32 by default). **Note the difference: with `(r/fold)` the computation is chunk-size driven by "n", the desired chunk size (default to 512). With `(p/fold)` the computation is chunk-number driven by "n" the number of desired chunks to compute in parallel**:
 
 ```clojure
 (p/fold 4 + (p/xrf + (map inc) (drop 1) (filter odd?)) v)
@@ -137,7 +139,7 @@ Caveats and known problems:
 
 ### `p/count`
 
-`p/count` can speed up counting on collections when non-trivial transformations on large collections are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements:
+`p/count` can speed up counting on collections when non-trivial transformations (and large collections) are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements:
 
 ```clojure
 (def xform
@@ -173,6 +175,8 @@ Caveats and known problems:
 ### `p/interleave`
 
 ### `p/frequencies`
+
+Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values.
 
 ### `p/update-vals`
 
