@@ -4,23 +4,23 @@
 in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-Status: project is public for feedback, but not yet on Clojars. Many other features in progress.
+Status: project is public for feedback, but not yet on Clojars. If not documented, still in progress.
 
 #### Content
 
-| Name                   | Description
-|------------------------| ---------------------------------------------------
-| [x] [`p/fold`](#pfold) | Like `r/fold` also supporting stateful transducers
-| [x] `p/update-vals`    | Updates values in a map in parallel.
-| [x] `p/interleave`     | Like `core/interleave`
-| [x] `p/frequencies`    | Like `core/frequencies`
-| [x] `p/count`          | Parallel count
-| [x] `p/group-by`       | Parallel `core/group-by`
-| [ ] `p/merge-sort`     | Memory efficient parallel merge-sort
-| [ ] `p/split-by`       | Splitting transducer based on contiguous elements.
-| [ ] `p/eduction`       | Soft reference caching iterators for `eduction`
-| [ ] `p/mapv`           | Transform a vector in parallel and returns a vector.
-| [ ] `p/filterv`        | Filter a vector in parallel and returns a vector.
+| Name                                    | Description
+|-----------------------------------------| ---------------------------------------------------
+| [`p/fold`](#pfold-pxrf-and-pfolder)     | Like `r/fold` also supporting stateful transducers
+| [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
+| [`p/interleave`](#pinterleave)          | Like `core/interleave`
+| [`p/frequencies`](#pfrequencies)        | Like `core/frequencies`
+| [`p/count`](#pcount)                    | Parallel count
+| [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
+| `p/merge-sort`                          | Memory efficient parallel merge-sort
+| `p/split-by`                            | Splitting transducer based on contiguous elements.
+| `p/eduction`                            | Soft reference caching iterators for `eduction`
+| `p/mapv`                                | Transform a vector in parallel and returns a vector.
+| `p/filterv`                             | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
