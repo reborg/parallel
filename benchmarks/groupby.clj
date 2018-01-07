@@ -28,10 +28,10 @@
 
 ;; ************* Parallel Group-By **************
 
-(quick-bench (p/group-by identity v1)) ;; 443ms
-(quick-bench (p/group-by identity v2)) ;; 188ms
+(quick-bench (p/group-by identity v1)) ;; 441ms
+(quick-bench (p/group-by identity v2)) ;; 168ms
 (quick-bench (p/group-by identity v3)) ;; 6ms
-(quick-bench (p/group-by identity v4)) ;; 37ms
+(quick-bench (p/group-by identity v4)) ;; 35ms
 
 ;; ************* Parallel Group-By Mutable Result **************
 

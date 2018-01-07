@@ -232,9 +232,7 @@
   map with Queue type values is not a problem, a further 2x
   speedup can be achieved by:
         (binding [p/*mutable* true] (p/group-by f coll))
-  Restrictions:
-    * It does not support nil values.
-    * Only stateless transducers are allowed in xforms."
+  Restrictions: it does not support nil values."
   [f coll & xforms]
   (let [coll (if (foldable? coll) coll (into [] coll))
         m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
@@ -243,7 +241,6 @@
              (let [k (f x)
                    ^Queue a (or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
                (when a (.add a x))
-               m))
-        reducef (if (seq xforms) ((apply comp xforms) rf) rf)]
-    (r/fold combinef reducef coll)
+               m))]
+    (fold combinef (apply xrf rf xforms) coll)
     (if *mutable* m (persistent! (reduce-kv (fn [m k v] (assoc! m k (vec v))) (transient {}) m)))))

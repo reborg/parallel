@@ -131,6 +131,8 @@
     (is (= 5000 (count ((p/group-by odd? (range 10000)) true)))))
 (testing "with xducers"
     (is (= 1667 (count ((p/group-by odd? (range 10000) (map inc) (filter #(zero? (mod % 3)))) true)))))
+(testing "with stateful xducers"
+    (is (= 1133 (count ((p/group-by odd? (range 10000) (drop 100) (map inc) (filter #(zero? (mod % 3)))) true)))))
   (testing "anagrams"
     (let [dict (slurp "test/words")]
       (is (= #{"caret" "carte" "cater" "crate"
