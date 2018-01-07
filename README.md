@@ -4,23 +4,23 @@
 in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-Status: project is public for feedback, but not yet on Clojars.
+Status: project is public for feedback, but not yet on Clojars. Many other features in progress.
 
 #### Content
 
-|Name                  | Description
-|-------------------   | ---------------------------------------------------
-|* [x] `p/fold`        | Like `r/fold` also supporting stateful transducers
-|* [x] `p/update-vals` | Updates values in a map in parallel.
-|* [x] `p/interleave`  | Like `core/interleave`
-|* [x] `p/frequencies` | Like `core/frequencies`
-|* [x] `p/count`       | Parallel count
-|* [x] `p/group-by`    | Parallel `core/group-by`
-|* [ ] `p/merge-sort`  | Memory efficient parallel merge-sort
-|* [ ] `p/split-by`    | Splitting transducer based on contiguous elements.
-|* [ ] `p/eduction`    | Soft reference caching iterators for `eduction`
-|* [ ] `p/mapv`        | Transform a vector in parallel and returns a vector.
-|* [ ] `p/filterv`     | Filter a vector in parallel and returns a vector.
+| Name                   | Description
+|------------------------| ---------------------------------------------------
+| [x] [`p/fold`](#pfold) | Like `r/fold` also supporting stateful transducers
+| [x] `p/update-vals`    | Updates values in a map in parallel.
+| [x] `p/interleave`     | Like `core/interleave`
+| [x] `p/frequencies`    | Like `core/frequencies`
+| [x] `p/count`          | Parallel count
+| [x] `p/group-by`       | Parallel `core/group-by`
+| [ ] `p/merge-sort`     | Memory efficient parallel merge-sort
+| [ ] `p/split-by`       | Splitting transducer based on contiguous elements.
+| [ ] `p/eduction`       | Soft reference caching iterators for `eduction`
+| [ ] `p/mapv`           | Transform a vector in parallel and returns a vector.
+| [ ] `p/filterv`        | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
@@ -34,9 +34,6 @@ Status: project is public for feedback, but not yet on Clojars.
 * [ ] Generative testing?
 * [ ] Jar on Clojars
 * [ ] CI
-* [x] `p/update-vals` Enable for stateful transducers.
-* [x] `p/fold` Enable transducers on hash-map folding.
-* [x] `p/frequencies` Enable for stateful transducers.
 
 ### How to use the library
 
@@ -170,7 +167,8 @@ Caveats and known problems:
 ;; 1000000
 ```
 
-`p/count` is an eager operation, transforming "coll" into a vector if it's not already a foldable collection (vectors, maps and reducers/Cat objects).
+See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcount.clj) for benchmarks.
+`p/count` is eager, transforming "coll" into a vector if it's not already a foldable collection (vectors, maps or reducers/Cat objects).
 
 ### `p/interleave`
 
