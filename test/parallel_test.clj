@@ -48,6 +48,14 @@
   (testing "frequencies with xform"
     (is (= 5000 (count (p/frequencies (range 1e4) (filter odd?)))))
     (is (= {":a" 2 ":b" 3} (p/frequencies [:a :a :b :b :b] (map str)))))
+  (testing "a dictionary of words with no dupes"
+    (let [dict (slurp "test/words")]
+      (is (= (count (re-seq #"\S+" dict))
+             (->> dict
+                  (re-seq #"\S+")
+                  (frequencies)
+                  (map second)
+                  (reduce +))))))
   (testing "misc examples"
     (are [expected test-seq] (= (p/frequencies test-seq) expected)
          {\p 2 \s 4 \i 4 \m 1} "mississippi"

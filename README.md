@@ -176,7 +176,20 @@ Caveats and known problems:
 
 ### `p/frequencies`
 
-Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values.
+Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values. The following is the typical word frequencies example:
+
+```clojure
+(def war-and-peace "http://www.gutenberg.org/files/2600/2600-0.txt")
+(def book (slurp war-and-peace))
+(let [freqs (p/frequencies
+              (re-seq #"\S+" book)
+              (map #(.toLowerCase ^String %)))]
+  (take 5 (sort-by last > freqs)))
+;; (["the" 34258] ["and" 21396] ["to" 16500] ["of" 14904] ["a" 10388])
+
+(quick-bench (p/frequencies (re-seq #"\S+" book) (map #(.toLowerCase ^String %)))) ;; 165ms
+(quick-bench (frequencies (map #(.toLowerCase ^String %) (re-seq #"\S+" book)))) ;; 394ms
+```
 
 ### `p/update-vals`
 
