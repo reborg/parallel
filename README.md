@@ -234,9 +234,6 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
 A further boost can be achieved by avoiding conversion back to immutable data structures:
 
 ```clojure
-(require '[criterium.core :refer [quick-bench]])
-
-;; with transformation (which boosts p/group-by even further)
 (quick-bench
   (binding [p/*mutable* true]
     (p/group-by sort war-and-peace (map #(.toLowerCase ^String %))))) ;; 168ms
