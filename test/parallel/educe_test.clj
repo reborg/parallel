@@ -1,9 +1,8 @@
-(ns xduce.educe-test
+(ns parallel.educe-test
   (:import [clojure.lang RT]
            [java.lang.ref ReferenceQueue WeakReference]
-           java.util.concurrent.ConcurrentHashMap
-           [xduce.educe Single CachingIterator])
-  (:require [xduce.educe :as educe]
+           java.util.concurrent.ConcurrentHashMap)
+  (:require [parallel.educe :as educe]
             [clojure.test :refer :all]))
 
 (deftest iterate-single
@@ -37,6 +36,6 @@
     (is (= 20 @cnt))))
 
 ; (require '[xduce.educe :as e] :reload)
+; (require '[parallel.educe :as e] :reload)
 ; (let [it (e/create (comp (map inc) (mapcat range)) (clojure.lang.RT/iter (range 3)))] (while (.hasNext it) (prn (.next it))))
 ; (let [it (clojure.lang.TransformerIterator/create (comp (map inc) (mapcat range)) (clojure.lang.RT/iter (range 3)))] (while (.hasNext it) (prn (.next it))))
-

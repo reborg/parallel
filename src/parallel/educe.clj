@@ -1,4 +1,4 @@
-(ns xduce.educe
+(ns parallel.educe
   (:import
     [java.lang.ref ReferenceQueue Reference WeakReference]
     [java.util.concurrent ConcurrentHashMap]

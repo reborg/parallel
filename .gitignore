@@ -10,4 +10,6 @@ pom.xml.asc
 .hgignore
 .hg/
 playground
-doc/notes.md
+doc
+appcds.cache
+appcds.classlist
