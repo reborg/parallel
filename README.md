@@ -191,6 +191,68 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
 
 ### `p/update-vals`
 
+### `p/group-by`
+
+`p/group-by` is similar to `clojure.core/group-by`, but the grouping happens in parallel. Here's an example about searching most frequent anagrams in a large text:
+
+```clojure
+(require '[clojure.string :as s])
+
+(def war-and-peace
+  (s/split (slurp "http://gutenberg.org/files/2600/2600-0.txt") #"\W+"))
+
+(def anagrams
+  (p/group-by sort war-and-peace (map #(.toLowerCase ^String %))))
+
+(->> anagrams
+  (map (comp distinct second))
+  (sort-by count >)
+  first)
+
+;; ("stop" "post" "spot" "pots" "tops")
+```
+
+`p/group-by` takes an optional list of transducers to apply to the items in coll before generating the groups. It has been used in the example to lower-case each word. Note that differently from `clojure.core/group-by`:
+
+* The order of the items in each value vector can change between runs (this can be a problem or not, depending on your use case).
+* It does not support nil values in the input collection.
+
+`p/group-by` is generally 2x-5x faster than `clojure.core/group-by`:
+
+```clojure
+(require '[criterium.core :refer [quick-bench]])
+
+;; with transformation (which boosts p/group-by even further)
+(quick-bench (group-by sort (map #(.toLowerCase ^String %) war-and-peace)))   ;; 957ms
+(quick-bench (p/group-by sort war-and-peace (map #(.toLowerCase ^String %)))) ;; 259ms
+
+;; fair comparison without transformations
+(quick-bench (group-by sort war-and-peace))   ;; 936ms
+(quick-bench (p/group-by sort war-and-peace)) ;; 239ms
+```
+
+A further boost can be achieved by avoiding conversion back to immutable data structures:
+
+```clojure
+(require '[criterium.core :refer [quick-bench]])
+
+;; with transformation (which boosts p/group-by even further)
+(quick-bench
+  (binding [p/*mutable* true]
+    (p/group-by sort war-and-peace (map #(.toLowerCase ^String %))))) ;; 168ms
+```
+
+When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap with ConcurrentLinkedQueue as values. They are both easy to deal with from Clojure.
+
+```clojure
+(def anagrams
+  (binding [p/*mutable* true]
+    (p/group-by sort war-and-peace (map #(.toLowerCase ^String %)))))
+
+(distinct (into [] (.get anagrams (sort "stop"))))
+;; ("post" "spot" "stop" "tops" "pots")
+```
+
 ## License
 
 Copyright © 2017 Renzo Borgatti @reborg http://reborg.net
