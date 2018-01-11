@@ -182,7 +182,7 @@
      ; (create xform (RT/iter coll))
      (if (nil? iter)
        (do
-         ; (println "No iter, new chain.")
+         (println "No iter, new chain.")
          (set! iter (create xform (RT/iter coll))))
        (do
          ; (println "I. Existing chain with iter" iter)

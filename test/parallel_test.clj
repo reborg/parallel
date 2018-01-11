@@ -5,14 +5,14 @@
             [clojure.test :refer :all]))
 
 (deftest eduction-sequence-test
-  (testing "eduction"
+  #_(testing "eduction"
     (is (= [1 3 5 7 9] (p/eduction (map inc) (filter odd?) (range 10)))))
 
-  (testing "sequence"
+  #_(testing "sequence"
     (is (= [1 3 5 7 9] (p/sequence (comp (map inc) (filter odd?)) (range 10))))
     (is (= (range 10) (p/sequence (comp (map vector) cat (dedupe)) (range 10) (range 10)))))
 
-  (testing "clj-1669"
+  #_(testing "clj-1669"
     (let [s (range 1000)
           v (vec s)
           s50 (range 50)
