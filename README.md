@@ -4,7 +4,7 @@
 in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-Status: project is public for feedback, but not yet on Clojars. If not documented, still in progress.
+Status: project is public to receive feedback, but not yet on Clojars. When an API is not documented below, consider it still in progress.
 
 #### Content
 
@@ -16,15 +16,13 @@ Status: project is public for feedback, but not yet on Clojars. If not documente
 | [`p/frequencies`](#pfrequencies)        | Like `core/frequencies`
 | [`p/count`](#pcount)                    | Parallel count
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
-| `p/merge-sort`                          | Memory efficient parallel merge-sort
+| [`p/merge-sort`](#pmerge-sort)          | Memory efficient parallel merge-sort
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
-| `p/eduction`                            | Soft reference caching iterators for `eduction`
 | `p/mapv`                                | Transform a vector in parallel and returns a vector.
 | `p/filterv`                             | Filter a vector in parallel and returns a vector.
 
 #### TODO:
 
-* [ ] A `stateless?` predicate that can tell me if an xform is stateless (for educe)
 * [ ] `p/fold` Enable extend to (thread-safe) Java collections
 * [ ] `p/fold` Enable extend on Cat objects
 * [ ] `p/fold` operates on a group of keys for hash-maps.
@@ -249,6 +247,23 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 (distinct (into [] (.get anagrams (sort "stop"))))
 ;; ("post" "spot" "stop" "tops" "pots")
 ```
+
+### `p/merge-sort`
+
+`merge-sort` is a well known example of parallelizable sorting algorithm. It was especially useful in the past when machines had to use tapes to process large amount of data, loading smaller chunks on demand into the main memory. It can still be useful today, when the source of the data is some fixed order slow storage such as Amazon S3. `p/merge-sort` could be used to fetch large amount of data from S3, order them by some attribute and consume only the part that is actually needed (for example "find the top most" kind of problems).
+
+A simple `p/merge-sort` example is the following:
+
+```clojure
+(let [fetchf (fn [id] id)
+      v (into [] (reverse (range 10000)))]
+  (take 5 (p/merge-sort 1000 compare fetchf v)))
+;; [0 1 2 3 4]
+```
+
+`p/merge-sort` accepts a vector "v" of IDs as input. The unique identifiers are used to fetch the whole data object from some remote storage. "fetchf" is the way to tell `p/merge-sort` how to retrieve the entire object given a single id. The IDs are split into chunks not bigger than 1000 items each (512 by default). Once all data is retrieved for a chunk, data are sorted using a comparator ("compare" is the default) and the result is stored in a temporary file on disk. Once all chunk are retrieved, sorted and stored on disk, the result is made available as a lazy sequence. If the lazy sequence is never fully consumed, the temporary files are never loaded in memory all at once. We are taking the first 5 elements in the example, which means that some of the stored files are never loaded into memory.
+
+The degree of parallelism with which "fetchf" is invoked is equal to the number of cores (physical or virtual) available on the running system.
 
 ## License
 

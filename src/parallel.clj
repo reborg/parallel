@@ -2,9 +2,12 @@
   (:refer-clojure :exclude [interleave eduction sequence frequencies count group-by])
   (:require [parallel.educe :as educe]
             [parallel.foldmap :as fmap]
-            [clojure.core.reducers :as r])
+            [clojure.core.reducers :as r]
+            [clojure.core.protocols :as p]
+            [clojure.java.io :as io])
   (:import
     [parallel.educe Educe]
+    [java.io File]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
@@ -51,24 +54,6 @@
   (or (map? coll)
       (vector? coll)
       (instance? clojure.core.reducers.Cat coll)))
-
-(defn update-vals
-  "Use f to update the values of a map in parallel. It performs well
-  with non-trivial f, otherwise is outperformed by reduce-kv.
-  For larger maps (> 100k keys), the final transformation
-  from mutable to persistent dominates over trivial f trasforms.
-  You can access the raw mutable java.util.Map by setting the dynamic
-  binding *mutable* to true. Restrictions: does not support nil values."
-  [^Map input f]
-  (let [ks (into [] (keys input))
-        output (ConcurrentHashMap. (clojure.core/count ks) 1. ncpu)]
-    (r/fold
-      (fn ([] output) ([_ _]))
-      (fn [^Map m k]
-        (.put m k (f (.get input k)))
-        m)
-      ks)
-    (if *mutable* output (into {} output))))
 
 (defn- compose
   "As a consequence, reducef cannot be a vector."
@@ -240,3 +225,76 @@
                m))]
     (fold combinef (apply xrf rf xforms) coll)
     (if *mutable* m (into {} m))))
+
+(defn update-vals
+  "Use f to update the values of a map in parallel. It performs well
+  with non-trivial f, otherwise is outperformed by reduce-kv.
+  For larger maps (> 100k keys), the final transformation
+  from mutable to persistent dominates over trivial f trasforms.
+  You can access the raw mutable java.util.Map by setting the dynamic
+  binding *mutable* to true. Restrictions: does not support nil values."
+  [^Map input f]
+  (let [ks (into [] (keys input))
+        output (ConcurrentHashMap. (clojure.core/count ks) 1. ncpu)]
+    (r/fold
+      (fn ([] output) ([_ _]))
+      (fn [^Map m k]
+        (.put m k (f (.get input k)))
+        m)
+      ks)
+    (if *mutable* output (into {} output))))
+
+(defrecord PostReduce [postf v]
+  p/CollReduce
+  (coll-reduce [this f]
+    (p/coll-reduce this f nil))
+  (coll-reduce [this f val]
+    ((:postf this) (p/coll-reduce (:v this) f val)))
+  r/CollFold
+  (coll-fold [this n combinef reducef]
+    (if (<= (clojure.core/count (:v this)) n)
+      (reduce reducef (combinef) this)
+      (let [half (quot (clojure.core/count (:v this)) 2)
+            r1 (PostReduce. (:postf this) (subvec (:v this) 0 half))
+            r2 (PostReduce. (:postf this) (subvec (:v this) half (clojure.core/count (:v this))))
+            fc (fn [v] #(r/fold n combinef reducef v))]
+        (#'r/fjinvoke
+          #(let [f1 (fc r1)
+                 t2 (#'r/fjtask (fc r2))]
+             (#'r/fjfork t2)
+             (combinef (f1) (#'r/fjjoin t2))))))))
+
+(defn sort-all
+  "Lazily merge already sorted collections. Maintains order
+  through given comparator (or compare by default)."
+  ([colls]
+   (sort-all compare colls))
+  ([cmp colls]
+   (lazy-seq
+     (if (some identity (map first colls))
+       (let [[[winner & losers] & others] (sort-by first cmp colls)]
+         (cons winner (sort-all cmp (if losers (conj others losers) others))))))))
+
+(defn merge-sort
+  "Allows large datasets (that would otherwise not fit into memory)
+  to be sorted in parallel. Data to fetch is identified by a collection of IDs.
+  IDs are split into chunks which are processed in parallel using reducers.
+  'fetchf' is used on each ID to retrieve the relevant data.
+  The chunk is sorted using 'cmp' ('compare' by default) and saved to disk
+  to a temporary file that is deleted when the JVM exits.
+  The list of file handles is then used to merge the pre-sorted chunks lazily
+  while maintaining order."
+  ([fetchf coll]
+   (merge-sort compare fetchf coll))
+  ([cmp fetchf coll]
+   (merge-sort 512 compare fetchf coll))
+  ([n cmp fetchf coll]
+   (letfn [(load-chunk [fname] (read-string (slurp fname)))
+           (save-chunk! [data]
+             (let [file (File/createTempFile "mergesort-" ".tmp")]
+               (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
+     (->> (r/fold n concat
+            ((map fetchf) conj)
+            (PostReduce. #(->> % (sort cmp) save-chunk! vector) (into [] coll)))
+       (map load-chunk)
+       (sort-all cmp)))))

@@ -152,3 +152,9 @@
                         (sort-by (comp count second) >)
                         (map second)
                         first)))))))
+
+(deftest merge-sorting
+  (testing "sanity"
+    (let [coll (into [] (reverse (range 10000)))]
+      (is (= (range 10000)
+             (p/merge-sort 1000 compare identity coll))))))
