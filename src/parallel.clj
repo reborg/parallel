@@ -277,24 +277,24 @@
 
 (defn merge-sort
   "Allows large datasets (that would otherwise not fit into memory)
-  to be sorted in parallel. Data to fetch is identified by a collection of IDs.
+  to be sorted in parallel. Data to fetch is identified by a vector of IDs.
   IDs are split into chunks which are processed in parallel using reducers.
   'fetchf' is used on each ID to retrieve the relevant data.
   The chunk is sorted using 'cmp' ('compare' by default) and saved to disk
   to a temporary file that is deleted when the JVM exits.
   The list of file handles is then used to merge the pre-sorted chunks lazily
   while maintaining order."
-  ([fetchf coll]
-   (merge-sort compare fetchf coll))
-  ([cmp fetchf coll]
-   (merge-sort 512 compare fetchf coll))
-  ([n cmp fetchf coll]
+  ([fetchf ids]
+   (merge-sort compare fetchf ids))
+  ([cmp fetchf ids]
+   (merge-sort 512 compare fetchf ids))
+  ([n cmp fetchf ids]
    (letfn [(load-chunk [fname] (read-string (slurp fname)))
            (save-chunk! [data]
              (let [file (File/createTempFile "mergesort-" ".tmp")]
                (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
      (->> (r/fold n concat
             ((map fetchf) conj)
-            (PostReduce. #(->> % (sort cmp) save-chunk! vector) (into [] coll)))
+            (PostReduce. #(->> % (sort cmp) save-chunk! vector) (into [] ids)))
        (map load-chunk)
        (sort-all cmp)))))
