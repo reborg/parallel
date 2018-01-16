@@ -155,6 +155,6 @@
 
 (deftest merge-sorting
   (testing "sanity"
-    (let [coll (into [] (reverse (range 10000)))]
-      (is (= (range 10000)
-             (p/merge-sort 1000 compare identity coll))))))
+    (let [coll (into [] (reverse (range 1000)))]
+      (is (= (range 1000)
+             (p/merge-sort 200 compare identity coll))))))
