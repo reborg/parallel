@@ -153,8 +153,8 @@
                         (map second)
                         first)))))))
 
-(deftest merge-sorting
+(deftest external-sorting
   (testing "sanity"
     (let [coll (into [] (reverse (range 1000)))]
       (is (= (range 1000)
-             (p/merge-sort 200 compare identity coll))))))
+             (p/external-sort 200 compare identity coll))))))

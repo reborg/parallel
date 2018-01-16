@@ -256,7 +256,7 @@
        (let [[[winner & losers] & others] (sort-by first cmp colls)]
          (cons winner (sort-all cmp (if losers (conj others losers) others))))))))
 
-(defn merge-sort
+(defn external-sort
   "Allows large datasets (that would otherwise not fit into memory)
   to be sorted in parallel. Data to fetch is identified by a vector of IDs.
   IDs are split into chunks which are processed in parallel using reducers.
@@ -266,9 +266,9 @@
   The list of file handles is then used to merge the pre-sorted chunks lazily
   while maintaining order."
   ([fetchf ids]
-   (merge-sort compare fetchf ids))
+   (external-sort compare fetchf ids))
   ([cmp fetchf ids]
-   (merge-sort 512 compare fetchf ids))
+   (external-sort 512 compare fetchf ids))
   ([n cmp fetchf ids]
    (letfn [(load-chunk [fname] (read-string (slurp fname)))
            (save-chunk! [data]

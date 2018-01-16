@@ -16,7 +16,7 @@ Status: project is public to receive feedback, but not yet on Clojars. When an A
 | [`p/frequencies`](#pfrequencies)        | Like `core/frequencies`
 | [`p/count`](#pcount)                    | Parallel count
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
-| [`p/merge-sort`](#pmerge-sort)          | Memory efficient parallel merge-sort
+| [`p/external-sort`](#pexternal-sort)    | Memory efficient parallel merge-sort
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/mapv`                                | Transform a vector in parallel and returns a vector.
 | `p/filterv`                             | Filter a vector in parallel and returns a vector.
@@ -248,20 +248,20 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 ;; ("post" "spot" "stop" "tops" "pots")
 ```
 
-### `p/merge-sort`
+### `p/external-sort`
 
-`merge-sort` is a well known example of parallelizable sorting algorithm. It was especially useful in the past when machines had to use tapes to process large amount of data, loading smaller chunks on demand into the main memory. It can still be useful today, when the source of the data is some fixed order slow storage such as Amazon S3. `p/merge-sort` could be used to fetch large amount of data from S3, order them by some attribute and consume only the part that is actually needed (for example "find the top most" kind of problems).
+`merge-sort` is a well known example of parallelizable sorting algorithm. There was also a time when machines had to use tapes to process large amount of data, loading smaller chunks into main memory. `merge-sort` is also suitable for that. Today we still have big-data and slow external storage such as S3 for which something like a file based merge-sort could still be useful. `p/external-sort` can be used to fetch large amount of data from slow storage, order them by some attribute and consume only the part that is actually needed (for example "find the top most" kind of problems).
 
-A simple `p/merge-sort` example is the following:
+A simple `p/external-sort` example is the following:
 
 ```clojure
 (let [fetchf (fn [id] id)
       v (into [] (reverse (range 10000)))]
-  (take 5 (p/merge-sort 1000 compare fetchf v)))
+  (take 5 (p/external-sort 1000 compare fetchf v)))
 ;; [0 1 2 3 4]
 ```
 
-`p/merge-sort` accepts a vector "v" of IDs as input. The unique identifiers are used to fetch the whole data object from some remote storage. "fetchf" is the way to tell `p/merge-sort` how to retrieve the entire object given a single id (in this example, fetching the id has been simulated by returning the id itself). The IDs are split into chunks not bigger than 1000 items each (512 by default).
+`p/external-sort` accepts a vector "v" of IDs as input. The unique identifiers are used to fetch the whole data object from some remote storage. "fetchf" is the way to tell `p/external-sort` how to retrieve the entire object given a single id (in this example, fetching the id has been simulated by returning the id itself). The IDs are split into chunks not bigger than 1000 items each (512 by default).
 
 Once all data is retrieved for a chunk, data are sorted using the given comparator ("compare" is the default) and the result is stored in a temporary file on disk. 16 files are created in this example, as the number of files needs to be a power of two and `(/ 10000 16) = 625` is the first split that generates chunk less than 1000 in size.
 
