@@ -3,11 +3,13 @@
                             count group-by sort])
   (:require [parallel.educe :as educe]
             [parallel.foldmap :as fmap]
+            [parallel.merge-sort :as msort]
             [clojure.core.reducers :as r]
             [clojure.core.protocols :as p]
             [clojure.java.io :as io])
   (:import
     [parallel.educe Educe]
+    [parallel.merge_sort MergeSort]
     [java.io File]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
@@ -245,16 +247,31 @@
       ks)
     (if *mutable* output (into {} output))))
 
-(defn sort-all
+(defn lazy-sort
   "Lazily merge already sorted collections. Maintains order
   through given comparator (or compare by default)."
   ([colls]
-   (sort-all compare colls))
+   (lazy-sort compare colls))
   ([cmp colls]
    (lazy-seq
      (if (some identity (map first colls))
        (let [[[winner & losers] & others] (sort-by first cmp colls)]
-         (cons winner (sort-all cmp (if losers (conj others losers) others))))))))
+         (cons winner (lazy-sort cmp (if losers (conj others losers) others))))))))
+
+(defn sort
+  "Parallel merge-sort which works by splitting the input collection
+  until 'threshold' (default 8192) is reached, then sorts at the leaf before
+  merging results back. Effective for large colls (> 2M elements)
+  or non trivial comparators. Set *mutable* true to access the
+  raw mutable array and skip the final conversion into a vector."
+  ([coll]
+   (sort compare coll))
+  ([cmp coll]
+   (sort 8192 compare coll))
+  ([threshold cmp coll]
+   (let [a (object-array coll)]
+     (msort/sort threshold cmp a)
+     (if *mutable* a (into [] a)))))
 
 (defn external-sort
   "Allows large datasets (that would otherwise not fit into memory)
@@ -281,4 +298,4 @@
            (coll-fold [this n combinef f]
              (foldvec (into [] ids) n combinef f))))
        (map load-chunk)
-       (sort-all cmp)))))
+       (lazy-sort cmp)))))

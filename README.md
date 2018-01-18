@@ -1,10 +1,13 @@
 ## parallel
 
-`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate already existing functions
-in the standard library. Sometimes it is a drop-in replacement, sometimes with a completely different semantic.
+`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate existing functions
+in the standard library, sometimes as drop-in replacement, sometimes with a very different semantic.
+
+If you see a function listed below in your project or if you use transducers, chances are you can speed-up your application using the version provided here.
+
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-Status: project is public to receive feedback, but not yet on Clojars. When an API is not documented below, consider it still in progress.
+**Status:** project is public for feedback, but not yet on Clojars. The functions that are already in the project has been tested and benchmarked and I consider them ready to use. Please report any inconsistency or problem using the "issues" tab, I'll be happy to help.
 
 #### Content
 
@@ -16,21 +19,19 @@ Status: project is public to receive feedback, but not yet on Clojars. When an A
 | [`p/frequencies`](#pfrequencies)        | Like `core/frequencies`
 | [`p/count`](#pcount)                    | Parallel count
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
-| [`p/external-sort`](#pexternal-sort)    | Memory efficient parallel merge-sort
+| [`p/external-sort`](#pexternal-sort)    | Memory efficient file-based parallel merge-sort.
+| [`p/sort`](#psort)                      | Parallel merge-sort.
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/mapv`                                | Transform a vector in parallel and returns a vector.
 | `p/filterv`                             | Filter a vector in parallel and returns a vector.
 
-#### TODO:
+#### todo/ideas
 
 * [ ] `p/fold` Enable extend to (thread-safe) Java collections
 * [ ] `p/fold` Enable extend on Cat objects
 * [ ] `p/fold` operates on a group of keys for hash-maps.
 * [ ] A foldable reader of some sort for large files.
-* [ ] All functions benchmarked and documented
-* [ ] Clojure 1.7->1.9 compatibility tests
 * [ ] Generative testing?
-* [ ] Jar on Clojars
 * [ ] CI
 
 ### How to use the library
@@ -130,7 +131,7 @@ The single argument for transducers is a vector pair containing a key and a valu
 Caveats and known problems:
 
 * Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates.
-* Stateful transducers can be used with `p/fold` on hash-maps as well, but given that each chunk contains a single key-value pair by default, they are not currently of big value. The library might introduce different strategies in the future to group key-value pairs as sub-maps.
+* Stateful transducers can be used with `p/fold` on hash-maps, but each parallel chunk contains a single key-value pair. The library might introduce different strategies in the future to group key-value pairs as sub-maps.
 
 ### `p/count`
 
@@ -170,6 +171,8 @@ See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcoun
 
 ### `p/interleave`
 
+Like `clojure.core/interleave` in transducer version.
+
 ### `p/frequencies`
 
 Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values. The following is the typical word frequencies example:
@@ -188,6 +191,8 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
 ```
 
 ### `p/update-vals`
+
+`p/'update-vals` updates the values of a map in parallel.
 
 ### `p/group-by`
 
@@ -247,6 +252,22 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 (distinct (into [] (.get anagrams (sort "stop"))))
 ;; ("post" "spot" "stop" "tops" "pots")
 ```
+
+### `p/sort`
+
+`p/sort` is a parallel merge-sort implementation that works by splitting the input into smaller chunks which are then ordered sequentially when they reach a certain threshold (8192 is the default threshold). `p/sort` offers the same features of `clojure.core/sort`, allowing to pass in a custom comparator. Additionally, it offers the possibility to alter the default threshold:
+
+```clojure
+(let [coll (range 2e6)]
+  (p/sort 10000 (comparator >) coll))
+```
+
+In the example above, we are reversing a range of 2 million integers, sorting sequentially after reaching a chunk size which is below 10 thousands elements. `p/sort` outperforms `core/sort` given large collections (> 1M elements) or non-trivial comparators. Especially in the second case, where each core needs to perform more computation to sort, the speed-boost is more evident.
+
+There are two ways to further speed-up sorting with `p/sort`:
+
+* Shave additional milliseconds by using the raw array output, by enclosing `p/sort` in a binding like `(binding [p/*mutable* true] (p/sort coll))`. `p/sort` returns an object array in this case, instead of a vector.
+* Fine tuning of the threshold amount to find the best concurrency/chunk ratio. You can explore going up/down by a few hundreds from the given default of 8192.
 
 ### `p/external-sort`
 

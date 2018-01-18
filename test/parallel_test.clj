@@ -153,6 +153,12 @@
                         (map second)
                         first)))))))
 
+(deftest sorting
+  (testing "sanity"
+    (let [coll (reverse (range 1000))]
+      (is (= (range 1000)
+             (p/sort 200 (comparator <) coll))))))
+
 (deftest external-sorting
   (testing "sanity"
     (let [coll (into [] (reverse (range 1000)))]
