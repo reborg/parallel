@@ -62,7 +62,7 @@
   "As a consequence, reducef cannot be a vector."
   [xrf]
   (if (vector? xrf)
-    ((last xrf) (first xrf))
+    ((peek xrf) (nth xrf 0))
     xrf))
 
 (defn xrf
