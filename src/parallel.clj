@@ -1,6 +1,6 @@
 (ns parallel
   (:refer-clojure :exclude [interleave eduction sequence frequencies
-                            count group-by sort])
+                            count group-by sort min max])
   (:require [parallel.educe :as educe]
             [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
@@ -98,9 +98,9 @@
   the given number of splits during a parallel fold.
   nchunks needs to be a power of two."
   [coll nchunks]
-  (apply max (show-chunks coll nchunks)))
+  (apply clojure.core/max (show-chunks coll nchunks)))
 
-(defn- foldvec
+(defn foldvec
   "A general purpose reducers/foldvec taking a generic f
   to apply at the leaf instead of reduce."
   [v n combinef f]
@@ -299,3 +299,29 @@
              (foldvec (into [] ids) n combinef f))))
        (map load-chunk)
        (lazy-sort cmp)))))
+
+(defn min
+  ([v]
+   (let [pivot (peek v)]
+     (r/fold
+       (fn ([] pivot) ([a b] (clojure.core/min a b)))
+       clojure.core/min v)))
+  ([v & xforms]
+   (let [pivot (peek v)]
+     (fold
+       (fn ([] pivot) ([a b] (clojure.core/min a b)))
+       (apply xrf clojure.core/min xforms)
+       v))))
+
+(defn max
+  ([v]
+   (let [pivot (peek v)]
+     (r/fold
+       (fn ([] pivot) ([a b] (clojure.core/max a b)))
+       clojure.core/max v)))
+  ([v & xforms]
+   (let [pivot (peek v)]
+     (fold
+       (fn ([] pivot) ([a b] (clojure.core/max a b)))
+       (apply xrf clojure.core/max xforms)
+       v))))

@@ -164,3 +164,14 @@
     (let [coll (into [] (reverse (range 1000)))]
       (is (= (range 1000)
              (p/external-sort 200 compare identity coll))))))
+
+(deftest min-max
+  (testing "min"
+    (let [c (shuffle (conj (range 100000) -3))]
+      (is (= -3 (p/min c)))))
+  (testing "max"
+    (let [c (shuffle (conj (range 100000) -3))]
+      (is (= 99999 (p/max c)))))
+  (testing "xducers"
+    (let [c (into [] (shuffle (conj (range 100000) -3)))]
+      (is (= 99998 (p/max c (map dec)))))))

@@ -21,6 +21,7 @@ The library also provides additional transducers (not necessarily for parallel u
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient file-based parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel merge-sort.
+| [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel min and max functions.
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/mapv`                                | Transform a vector in parallel and returns a vector.
 | `p/filterv`                             | Filter a vector in parallel and returns a vector.
@@ -289,6 +290,18 @@ Once all data is retrieved for a chunk, data are sorted using the given comparat
 Once all chunk are retrieved, sorted and stored on disk, the result is made available as a lazy sequence. If the lazy sequence is never fully consumed, the temporary files are never loaded in memory all at once. We are taking the first 5 elements in the example, which means that some of the stored files are never loaded into memory.
 
 The degree of parallelism with which "fetchf" is invoked is equal to the number of cores (physical or virtual) available on the running system. If the collection of IDs is a not a vector, it will be converted into one.
+
+### `p/min` and `p/max`
+
+`p/min` and `p/max` are analogous to the corresponding `core/min` and `core/max` functions, but they operate in parallel. They assume a vector of numbers as input (a lazy-sequence would have to be completely scanned anyway) and they allow any combination of transducers (stateless or stateful) to be passed in:
+
+```clojure
+(let [c (into [] (shuffle (range 100000)))]
+  (p/max c (map dec) (filter odd?)))
+;; 99997
+```
+
+As other parallel functions, `p/min` and `p/max` perform better on large vectors (> 500k elements). At 1 million elements `p/min` and `p/max` are already 50% faster than their sequential relatives, also depending on the number of available cores.
 
 ## License
 
