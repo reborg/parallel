@@ -1,14 +1,12 @@
 (ns parallel
   (:refer-clojure :exclude [interleave eduction sequence frequencies
                             count group-by sort min max])
-  (:require [parallel.educe :as educe]
-            [parallel.foldmap :as fmap]
+  (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [clojure.core.reducers :as r]
             [clojure.core.protocols :as p]
             [clojure.java.io :as io])
   (:import
-    [parallel.educe Educe]
     [parallel.merge_sort MergeSort]
     [java.io File]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
@@ -19,22 +17,6 @@
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
 
 (def ^:dynamic *mutable* false)
-
-(defn eduction
-  [& xforms]
-  (Educe. (apply comp (butlast xforms)) (last xforms)))
-
-(defn sequence
-  ([xform coll]
-     (or (clojure.lang.RT/chunkIteratorSeq
-         (educe/create xform (clojure.lang.RT/iter coll)))
-       ()))
-  ([xform coll & colls]
-     (or (clojure.lang.RT/chunkIteratorSeq
-         (educe/create
-           xform
-           (map #(clojure.lang.RT/iter %) (cons coll colls))))
-       ())))
 
 (defn interleave
   [coll]
