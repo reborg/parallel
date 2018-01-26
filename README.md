@@ -7,33 +7,32 @@ If you see a function listed below in your project or if you use transducers, ch
 
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
 
-**Status:** project is public for feedback, but not yet on Clojars. The functions that are already in the project has been tested and benchmarked and I consider them ready to use. Please report any inconsistency or problem using the "issues" tab, I'll be happy to help.
+**Status:** project is public but not yet on Clojars. The functions already available have been tested and benchmarked and I consider them ready for use. Please report any issue or ideas for new parallel functions, I'm happy to help.
 
 #### Content
 
+Ready:
+
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
-| [`p/fold`](#pfold-pxrf-and-pfolder)     | Like `r/fold` also supporting stateful transducers
+| [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
+| [`p/pmap`](#ppmap)                      | Parallel (not-lazy) `core/map`.
+| [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
-| [`p/interleave`](#pinterleave)          | Like `core/interleave`
-| [`p/frequencies`](#pfrequencies)        | Like `core/frequencies`
-| [`p/count`](#pcount)                    | Parallel count
+| [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
+| [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
-| [`p/external-sort`](#pexternal-sort)    | Memory efficient file-based parallel merge-sort.
-| [`p/sort`](#psort)                      | Parallel merge-sort.
-| [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel min and max functions.
+| [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
+| [`p/sort`](#psort)                      | Parallel `core/sort`.
+| [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
+
+In the pipeline:
+
+| Name                                    | Description
+|-----------------------------------------| ---------------------------------------------------
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
-| `p/mapv`                                | Transform a vector in parallel and returns a vector.
 | `p/filterv`                             | Filter a vector in parallel and returns a vector.
-
-#### todo/ideas
-
-* [ ] `p/fold` Enable extend to (thread-safe) Java collections
-* [ ] `p/fold` Enable extend on Cat objects
-* [ ] `p/fold` operates on a group of keys for hash-maps.
-* [ ] A foldable reader of some sort for large files.
-* [ ] Generative testing?
-* [ ] CI
+| `p/let`                                 | Parallel local binding
 
 ### How to use the library
 
@@ -131,8 +130,30 @@ The single argument for transducers is a vector pair containing a key and a valu
 
 Caveats and known problems:
 
-* Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates.
-* Stateful transducers can be used with `p/fold` on hash-maps, but each parallel chunk contains a single key-value pair. The library might introduce different strategies in the future to group key-value pairs as sub-maps.
+* Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
+
+### `p/pmap`
+
+`p/pmap` is a parallel version of `core/map` or a non-lazy version of `core/pmap`. It has the same simple interface:
+
+```clojure
+(subvec (p/pmap inc (range 1000000)) 0 10)
+;; [1 2 3 4 5 6 7 8 9 10]
+```
+
+You can call `p/pmap` with any collection type and it returns a vector. In the basic configuration above, `p/map` struggle to be faster than sequential `core/map` (it is around 30% slower), as it needs to convert the input and the output along with orchestrating threads. So if you are after maximum performance, consider the steps below:
+
+* Use the raw mutable object array output by setting the dynamic variable `*mutable*` to true. This produces a consistent speed-up, almost 50% faster than sequential (in the worst case scenario of a trivial transformation and small collection). The speed up increases the larger the collection.
+* Convert the input into a vector, or even better, use an object array directly. This produces another 50% increase.
+
+Here's an example which includes the suggested steps:
+
+```clojure
+(aget (binding [p/*mutable* true] (p/pmap inc (object-array (range 1000000)))) 1000)
+;; 1001
+```
+
+If your primary data structures are native arrays, `p/pmap` is hard to beat. But even if you only allow mutable results there are good performances overall. `p/pmap` also has an advantage over `core/pmap` in terms of speed, assuming you don't need laziness. The `benchmark/bpmap.clj` namespace contains the benchmark results, but it's always good to measure performances in your own application to understand if `p/pmap` is doing a good job.
 
 ### `p/count`
 
@@ -302,6 +323,16 @@ The degree of parallelism with which "fetchf" is invoked is equal to the number 
 ```
 
 As other parallel functions, `p/min` and `p/max` perform better on large vectors (> 500k elements). At 1 million elements `p/min` and `p/max` are already 50% faster than their sequential relatives, also depending on the number of available cores.
+
+#### todo
+
+* [ ] `p/fold` Enable extend to (thread-safe) Java collections
+* [ ] `p/fold` Enable extend on Cat objects
+* [ ] `p/fold` operates on a group of keys for hash-maps.
+* [ ] A foldable reader of some sort for large files.
+* [ ] Generative testing?
+* [ ] CI
+
 
 ## License
 
