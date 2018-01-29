@@ -129,9 +129,11 @@
 
 (deftest sorting
   (testing "sanity"
-    (let [coll (reverse (range 1000))]
-      (is (= (range 1000)
-             (p/sort 200 (comparator <) coll))))))
+    (let [coll (reverse (range 1000))
+          c2 (shuffle (map (comp str char) (range 65 91)))]
+      (is (= (range 1000) (p/sort 200 < coll)))
+      (is (= coll (p/sort 200 > coll)))
+      (is (= (sort compare c2) (p/sort compare c2))))))
 
 (deftest external-sorting
   (testing "sanity"

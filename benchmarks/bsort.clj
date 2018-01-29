@@ -11,96 +11,56 @@
     (== 0 percent) (let [n (count coll) half (quot n 2)] (interleave (take half coll) (reverse (drop half coll))))
     :else (apply concat (map #(if (< (rand) (/ percent 100.)) (sort %) %) (partition-all 20 (shuffle coll))))))
 
+;; ballpark at 1M
 (def coll (range 1e6))
-(def cmp (comparator #(neg? (compare (last %1) (last %2)))))
 
-(let [c (into [] (sort-some 100 coll))] (b (sort c)))
-(let [c (into [] (sort-some 95  coll))] (b (sort c)))
-(let [c (into [] (sort-some 50  coll))] (b (sort c)))
-(let [c (into [] (sort-some 10  coll))] (b (sort c)))
-(let [c (into [] (sort-some 0   coll))] (b (sort c)))
+(let [c (into [] (sort-some 100 coll))] (b (sort c))) ;  25
+(let [c (into [] (sort-some 95  coll))] (b (sort c))) ; 537
+(let [c (into [] (sort-some 50  coll))] (b (sort c))) ; 781
+(let [c (into [] (sort-some 10  coll))] (b (sort c))) ; 801
+(let [c (into [] (sort-some 0   coll))] (b (sort c))) ; 132
 
-29.374563875000003
-829.5600573333334
-893.2477856666666
-867.0599766666667
-104.929119
+(let [c (into [] (sort-some 100 coll))] (b (p/sort c))) ;  44
+(let [c (into [] (sort-some 95  coll))] (b (p/sort c))) ; 502
+(let [c (into [] (sort-some 50  coll))] (b (p/sort c))) ; 707
+(let [c (into [] (sort-some 10  coll))] (b (p/sort c))) ; 675
+(let [c (into [] (sort-some 0   coll))] (b (p/sort c))) ; 376
 
-(let [c (into [] (sort-some 100 coll))] (b (p/sort c)))
-(let [c (into [] (sort-some 95  coll))] (b (p/sort c)))
-(let [c (into [] (sort-some 50  coll))] (b (p/sort c)))
-(let [c (into [] (sort-some 10  coll))] (b (p/sort c)))
-(let [c (into [] (sort-some 0   coll))] (b (p/sort c)))
+(let [c (into [] (sort-some 100 coll))] (binding [p/*mutable* true] (b (p/sort c)))) ; 19
+(let [c (into [] (sort-some 95  coll))] (binding [p/*mutable* true] (b (p/sort c)))) ; 562
+(let [c (into [] (sort-some 50  coll))] (binding [p/*mutable* true] (b (p/sort c)))) ; 548
+(let [c (into [] (sort-some 10  coll))] (binding [p/*mutable* true] (b (p/sort c)))) ; 571
+(let [c (into [] (sort-some 0   coll))] (binding [p/*mutable* true] (b (p/sort c)))) ; 292
 
-67.0043625
-1085.0402506666667
--739.7066338333335
--681.320965
-241.27001366666667
+;; heavier comparator, just vaguely faster than sequential.
 
-(let [c (into [] (sort-some 100 coll))] (binding [p/*mutable* true] (b (p/sort c))))
-(let [c (into [] (sort-some 95  coll))] (binding [p/*mutable* true] (b (p/sort c))))
-(let [c (into [] (sort-some 50  coll))] (binding [p/*mutable* true] (b (p/sort c))))
-(let [c (into [] (sort-some 10  coll))] (binding [p/*mutable* true] (b (p/sort c))))
-(let [c (into [] (sort-some 0   coll))] (binding [p/*mutable* true] (b (p/sort c))))
+(let [c (into [] (sort-some 100 (map str coll)))] (b (sort compare c))) ; 59
+(let [c (into [] (sort-some 95  (map str coll)))] (b (sort compare c))) ; 760
+(let [c (into [] (sort-some 50  (map str coll)))] (b (sort compare c))) ; 760
+(let [c (into [] (sort-some 10  (map str coll)))] (b (sort compare c))) ; 802
+(let [c (into [] (sort-some 0   (map str coll)))] (b (sort compare c))) ; 136
 
-41.78496162500001
--803.7370548333334
--729.7513658333335
--689.6999491666667
-200.83075633333337
+(let [c (into [] (sort-some 100 (map str coll)))] (b (p/sort compare c))) ; 136
+(let [c (into [] (sort-some 95  (map str coll)))] (b (p/sort compare c))) ; 689
+(let [c (into [] (sort-some 50  (map str coll)))] (b (p/sort compare c))) ; 740
+(let [c (into [] (sort-some 10  (map str coll)))] (b (p/sort compare c))) ; 664
+(let [c (into [] (sort-some 0   (map str coll)))] (b (p/sort compare c))) ; 258
 
-(let [c (into [] (sort-some 100 (map str coll)))] (b (sort c)))
-(let [c (into [] (sort-some 95  (map str coll)))] (b (sort c)))
-(let [c (into [] (sort-some 50  (map str coll)))] (b (sort c)))
-(let [c (into [] (sort-some 10  (map str coll)))] (b (sort c)))
-(let [c (into [] (sort-some 0   (map str coll)))] (b (sort c)))
+;; Even heavier comparator
+(def cmp #(compare (last %1) (last %2)))
 
-60.442482250000005
-1008.2496673333334
-954.3344250000001
-1032.2275173333335
-210.32057850000001
+(let [c (into [] (sort-some 100 (map-indexed vector coll)))] (b (sort cmp c))) ; 325
+(let [c (into [] (sort-some 95  (map-indexed vector coll)))] (b (sort cmp c))) ; 6475
+(let [c (into [] (sort-some 50  (map-indexed vector coll)))] (b (sort cmp c))) ; 6801
+(let [c (into [] (sort-some 10  (map-indexed vector coll)))] (b (sort cmp c))) ; 6566
+(let [c (into [] (sort-some 0   (map-indexed vector coll)))] (b (sort cmp c))) ; 1261
 
-(let [c (into [] (sort-some 100 (map str coll)))] (b (p/sort c)))
-(let [c (into [] (sort-some 95  (map str coll)))] (b (p/sort c)))
-(let [c (into [] (sort-some 50  (map str coll)))] (b (p/sort c)))
-(let [c (into [] (sort-some 10  (map str coll)))] (b (p/sort c)))
-(let [c (into [] (sort-some 0   (map str coll)))] (b (p/sort c)))
+(let [c (into [] (sort-some 100 (map-indexed vector coll)))] (b (p/sort cmp c))) ; 182
+(let [c (into [] (sort-some 95  (map-indexed vector coll)))] (b (p/sort cmp c))) ; 3589
+(let [c (into [] (sort-some 50  (map-indexed vector coll)))] (b (p/sort cmp c))) ; 3371
+(let [c (into [] (sort-some 10  (map-indexed vector coll)))] (b (p/sort cmp c))) ; 3422
+(let [c (into [] (sort-some 0   (map-indexed vector coll)))] (b (p/sort cmp c))) ; 615
 
-154.14334116666666
--835.3246303333334
--719.7321315
--860.1659333333334
-285.89856916666673
-
-(def coll (range 1e5))
-
-(let [c (into [] (sort-some 100 (map-indexed vector coll)))] (b (sort cmp c)))
-(let [c (into [] (sort-some 95  (map-indexed vector coll)))] (b (sort cmp c)))
-(let [c (into [] (sort-some 50  (map-indexed vector coll)))] (b (sort cmp c)))
-(let [c (into [] (sort-some 10  (map-indexed vector coll)))] (b (sort cmp c)))
-(let [c (into [] (sort-some 0   (map-indexed vector coll)))] (b (sort cmp c)))
-
-51.04247650000001
-756.7503003333335
-736.9798181666667
-714.490584500000
-193.05705116666667
-
-(let [c (into [] (sort-some 100 (map-indexed vector coll)))] (b (p/sort cmp c)))
-(let [c (into [] (sort-some 95  (map-indexed vector coll)))] (b (p/sort cmp c)))
-(let [c (into [] (sort-some 50  (map-indexed vector coll)))] (b (p/sort cmp c)))
-(let [c (into [] (sort-some 10  (map-indexed vector coll)))] (b (p/sort cmp c)))
-(let [c (into [] (sort-some 0   (map-indexed vector coll)))] (b (p/sort cmp c)))
-
--8.597955738095237
--67.84706525
--60.098097583333335
--59.493946750000006
--31.742734066666667
-
-(def coll (range 1e6))
 (set! *warn-on-reflection* true)
 (let [c (int-array (sort-some 100 coll))] (b (do (Arrays/parallelSort c) (into [] c))))
 (let [c (int-array (sort-some 95  coll))] (b (do (Arrays/parallelSort c) (into [] c))))

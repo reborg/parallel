@@ -277,19 +277,50 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 
 ### `p/sort`
 
-`p/sort` is a parallel merge-sort implementation that works by splitting the input into smaller chunks which are then ordered sequentially when they reach a certain threshold (8192 is the default threshold). `p/sort` offers the same features of `clojure.core/sort`, allowing to pass in a custom comparator. Additionally, it offers the possibility to alter the default threshold:
+`p/sort` is a parallel merge-sort implementation that works by splitting the input into smaller chunks which are ordered sequentially below a certain threshold (8192 is the default). `p/sort` offers similar features to `clojure.core/sort` and it's not lazy. The following uses the default comparator `<` to sort a collection of 2M numbers (and by comparison doing the same with `core/sort`):
 
 ```clojure
-(let [coll (range 2e6)]
-  (p/sort 10000 (comparator >) coll))
+(let [coll (shuffle (range 2e6))] (time (dorun (p/sort coll))))
+;; "Elapsed time: 1335.769356 msecs"
+
+(let [coll (shuffle (range 2e6))] (time (dorun (sort coll))))
+;; "Elapsed time: 2098.151666 msecs"
 ```
 
-In the example above, we are reversing a range of 2 million integers, sorting sequentially after reaching a chunk size which is below 10 thousands elements. `p/sort` outperforms `core/sort` given large collections (> 1M elements) or non-trivial comparators. Especially in the second case, where each core needs to perform more computation to sort, the speed-boost is more evident.
+Or reverse sorting strings:
 
-There are two ways to further speed-up sorting with `p/sort`:
+```clojure
+(let [coll (shuffle (map str (range 2e6)))] (time (dorun (p/sort #(compare %2 %1) coll))))
+;; "Elapsed time: 1954.57439 msecs"
 
+(let [coll (shuffle (map str (range 2e6)))] (time (dorun (sort #(compare %2 %1) coll))))
+;; "Elapsed time: 2540.829781 msecs"
+```
+
+`p/sort` is implemented on top of mutable native arrays, converting both input/output into immutable vectors as a default. There are a few ways to speed-up sorting with `p/sort`:
+
+* Vector inputs are preferable than sequences.
 * Shave additional milliseconds by using the raw array output, by enclosing `p/sort` in a binding like `(binding [p/*mutable* true] (p/sort coll))`. `p/sort` returns an object array in this case, instead of a vector.
-* Fine tuning of the threshold amount to find the best concurrency/chunk ratio. You can explore going up/down by a few hundreds from the given default of 8192.
+* If you happen to be working natively with arrays, be sure to feed `p/sort` with the native array to avoid conversion.
+
+In order of increasing speed:
+
+```clojure
+(let [coll (into [] (shuffle (range 2e6)))]
+  (time (nth (p/sort coll) 100)))
+;; "Elapsed time: 1227.491567 msecs"
+
+(let [coll (into [] (shuffle (range 2e6)))]
+  (time (aget (binding [p/*mutable* true] (p/sort coll)) 100)))
+;; "Elapsed time: 1143.000283 msecs"
+
+(let [a (object-array (shuffle (range 2e6)))]
+  (time (aget (binding [p/*mutable* true] (p/sort coll)) 100)))
+;; "Elapsed time: 78.95744 msecs"
+;; (0 1 2 3 4 5 6 7 8 9)
+```
+
+As you can see, the conversion from immutable to mutable data structure processing the input is responsible for most of the sorting time. If you are lucky to work with arrays, sorting is one order of magnitude faster and more memory efficient.
 
 ### `p/external-sort`
 

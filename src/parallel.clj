@@ -243,17 +243,17 @@
          (cons winner (lazy-sort cmp (if losers (conj others losers) others))))))))
 
 (defn sort
-  "Parallel merge-sort which works by splitting the input collection
-  until 'threshold' (default 8192) is reached, then sorts at the leaf before
-  merging results back. Effective for large colls (> 2M elements)
-  or non trivial comparators. Set *mutable* true to access the
-  raw mutable array and skip the final conversion into a vector."
+  "Splits input coll into chunk of 'threshold' (default 8192)
+  size then sorts chunks in parallel. Input needs converstion into a native
+  array before splitting. More effective for large colls
+  (> 1M elements) or non trivial comparators. Set *mutable* to 'true'
+  to access the raw results as a mutable array."
   ([coll]
-   (sort compare coll))
+   (sort 8192 < coll))
   ([cmp coll]
-   (sort 8192 compare coll))
-  ([threshold cmp coll]
-   (let [a (object-array coll)]
+   (sort 8192 cmp coll))
+  ([threshold cmp ^Object coll]
+   (let [a (if (.. coll getClass isArray) coll (object-array coll))]
      (msort/sort threshold cmp a)
      (if *mutable* a (into [] a)))))
 

@@ -1,20 +1,19 @@
 (ns parallel.merge-sort
   (:refer-clojure :exclude [sort])
+  (:require [clojure.core.reducers :as r])
   (:import
     [java.util.concurrent Callable ForkJoinPool]
-    [java.util ArrayList Arrays Comparator]))
+    [java.util Arrays Comparator]))
 
 (set! *warn-on-reflection* true)
-(def pool (delay (ForkJoinPool.)))
 
 (definterface IMergeSort
-  (merge [middle])
+  (merge [mid])
   (sort []))
 
 (deftype MergeSort [^objects a
-                    ^int low
-                    ^int high
-                    ^ForkJoinPool pool
+                    ^int lo
+                    ^int hi
                     ^int threshold
                     ^Comparator cmp]
 
@@ -22,32 +21,35 @@
   (call [this] (.sort this))
 
   IMergeSort
-  (merge [this middle]
-    (when (pos? (cmp (aget a (dec middle)) (aget a middle)))
-      (let [copy-size (- high low)
-            lower-size (- middle low)
-            ^objects copy (object-array copy-size)]
-        (System/arraycopy a low copy 0 copy-size)
-        (loop [i low p 0 q lower-size]
-          (when (< i high)
-            (if (or (>= q copy-size)
-                    (and (< p lower-size)
-                         (neg? (cmp (aget copy p) (aget copy q)))))
-              (do (aset a i (aget copy p))
-                  (recur (inc i) (inc p) q))
-              (do (aset a i (aget copy q))
-                  (recur (inc i) p (inc q)))))))))
+  (merge [this mid]
+    (when (pos? (.compare cmp (aget a (dec mid)) (aget a mid)))
+      (let [size (- hi lo)
+            lsize (- mid lo)
+            ^objects aux (object-array size)]
+        (System/arraycopy a lo aux 0 size)
+        (loop [k lo i 0 j lsize]
+          (when (< k hi)
+            (if (or (>= j size) (and (< i lsize) (neg? (.compare cmp (aget aux i) (aget aux j)))))
+              (do (aset a k (aget aux i)) (recur (inc k) (inc i) j))
+              (do (aset a k (aget aux j)) (recur (inc k) i (inc j)))))))))
+
   (sort [this]
-    (let [size (- high low)]
+    (let [size (- hi lo)]
       (if (<= size threshold)
-        (Arrays/sort a low high cmp)
-        (let [middle (+ low (bit-shift-right size 1))
-              l (MergeSort. a low middle pool threshold cmp)
-              h (MergeSort. a middle high pool threshold cmp)]
-          (.invokeAll pool (doto (ArrayList.) (.add l) (.add h)))
-          (.merge this middle))))))
+        (Arrays/sort a lo hi cmp)
+        (let [mid (+ lo (bit-shift-right size 1))
+              l (MergeSort. a lo mid threshold cmp)
+              h (MergeSort. a mid hi threshold cmp)]
+          (let [fc (fn [^Callable child] #(.call child))]
+            (#'r/fjinvoke
+              #(let [f1 (fc l)
+                     t2 (#'r/fjtask (fc h))]
+                 (#'r/fjfork t2)
+                 (f1)
+                 (#'r/fjjoin t2)
+                 (.merge this mid)))))))))
 
 (defn sort [threshold cmp ^objects a]
   (let [n (alength a)
-        ^ForkJoinPool pool @pool]
-    (.join (.submit pool (MergeSort. a 0 n pool threshold cmp)))))
+        ^ForkJoinPool pool @r/pool]
+    (.join (.submit pool (MergeSort. a 0 n threshold cmp)))))
