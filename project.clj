@@ -8,8 +8,9 @@
   :source-paths ["src" "benchmarks"]
   :java-source-paths ["java"]
   :uberjar-name "parallel.jar"
-  :profiles {:dev {:dependencies [[criterium  "0.4.4"]] :plugins []}}
-  :deploy-repositories [["releases"  {:sign-releases false :url "https://clojars.org"}]
-                        ["snapshots" {:sign-releases false :url "https://clojars.org"}]]
+  :deploy-repositories [["releases" :clojars] ["snapshots" :clojars]]
+  :profiles {:dev {:dependencies [[criterium  "0.4.4"]
+                                  [com.clojure-goes-fast/clj-java-decompiler "0.1.0"]]
+                   :plugins []}}
   :jvm-opts ["-Xmx2g" "-server"]
   :test-refresh {:watch-dirs ["src" "test"] :refresh-dirs ["src" "test"]})
