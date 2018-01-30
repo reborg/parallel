@@ -85,7 +85,7 @@
            (p/fold
              (r/monoid #(merge-with into %1 %2) (constantly {}))
              (fn [m [k v]]
-               (let [c (Character/toLowerCase (first k))]
+               (let [c (Character/toLowerCase ^Character (first k))]
                  (assoc m c (conj (get m c []) v))))
              (hash-map "abba" 21 "zubb" 23 "hello" 10 "hops" 12)))))
   (testing "folding hashmaps with transducers"
