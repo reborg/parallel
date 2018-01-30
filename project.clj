@@ -9,5 +9,7 @@
   :java-source-paths ["java"]
   :uberjar-name "parallel.jar"
   :profiles {:dev {:dependencies [[criterium  "0.4.4"]] :plugins []}}
+  :deploy-repositories [["releases"  {:sign-releases false :url "https://clojars.org"}]
+                        ["snapshots" {:sign-releases false :url "https://clojars.org"}]]
   :jvm-opts ["-Xmx2g" "-server"]
   :test-refresh {:watch-dirs ["src" "test"] :refresh-dirs ["src" "test"]})
