@@ -316,11 +316,7 @@
   going sequential and it's given a default based on the number of
   available cores."
   ([f ^objects a]
-   (amap
-     (quot
-       (alength a)
-       (* 2 (.. Runtime getRuntime availableProcessors)))
-     f a))
+   (amap (quot (alength a) (* 2 ncpu)) f a))
   ([threshold f ^objects a]
    (mcombine/map
      (fn [low high ^objects a]
