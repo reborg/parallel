@@ -11,9 +11,9 @@ Current:
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
-| [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
+| [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
@@ -193,10 +193,6 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
 (quick-bench (frequencies (map #(.toLowerCase ^String %) (re-seq #"\S+" book)))) ;; 394ms
 ```
 
-### `p/update-vals`
-
-`p/'update-vals` updates the values of a map in parallel.
-
 ### `p/group-by`
 
 `p/group-by` is similar to `clojure.core/group-by`, but the grouping happens in parallel. Here's an example about searching most frequent anagrams in a large text:
@@ -256,6 +252,53 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 ;; ("post" "spot" "stop" "tops" "pots")
 ```
 
+### `p/update-vals`
+
+`p/'update-vals` updates the values of a map in parallel. With reference to the [`p/group-by`](#pgroup-by) example of the most frequent anagrams, we could apply the step to calculate the distinct words for each key on the map in parallel ("anagrams" is the map resulting from applying `p/group-by` to a large text):
+
+```clojure
+
+(first anagrams)
+;; [(\a \d \e \e \h \t) ["heated" "heated" "heated" "heated" "heated" "heated" "heated" "heated"]]
+
+(first (p/update-vals anagrams distinct))
+;; [(\a \d \e \e \h \t) ("heated")]
+```
+
+Like other functions in the library, `p/update-vals` speed can be improved removing the conversation back into a mutable data structure:
+
+```clojure
+(time (dorun (p/update-vals anagrams distinct)))
+;; "Elapsed time: 18.462031 msecs"
+(time (dorun (binding [p/*mutable* true] (p/update-vals anagrams distinct))))
+;; "Elapsed time: 9.908815 msecs"
+```
+
+In the context of the previous computation of the most frequent anagrams, we could operate using a combination of mutable `p/sort` and `p/update-vals` and compare it with the previous solution:
+
+```clojure
+(import '[java.util Map$Entry])
+
+(defn cmp [^Map$Entry e1 ^Map$Entry e2]
+  (> (count (.getValue e1))
+     (count (.getValue e2))))
+
+(time (binding [p/*mutable* true]
+  (let [a (p/sort cmp (p/update-vals anagrams distinct))]
+    (.getValue ^Map$Entry (aget ^objects a 0)))))
+;; "Elapsed time: 128.422734 msecs"
+;; ("post" "spot" "stop" "tops" "pots")
+
+(time (->> anagrams
+  (map (comp distinct second))
+  (sort-by count >)
+  first))
+;; "Elapsed time: 251.277616 msecs"
+;; ("post" "spot" "stop" "tops" "pots")
+```
+
+The mutable version is roughly 50% faster, but it's verbose and requires type annotations.
+
 ### `p/sort`
 
 `p/sort` is a parallel merge-sort implementation that works by splitting the input into smaller chunks which are ordered sequentially below a certain threshold (8192 is the default). `p/sort` offers similar features to `clojure.core/sort` and it's not lazy. The following uses the default comparator `<` to sort a collection of 2M numbers (and by comparison doing the same with `core/sort`):
@@ -287,21 +330,20 @@ Or reverse sorting strings:
 In order of increasing speed:
 
 ```clojure
-(let [coll (into [] (shuffle (range 2e6)))]
-  (time (nth (p/sort coll) 100)))
-;; "Elapsed time: 1227.491567 msecs"
+(require '[criterium.core :refer [quick-bench]])
 
-(let [coll (into [] (shuffle (range 2e6)))]
-  (time (aget (binding [p/*mutable* true] (p/sort coll)) 100)))
-;; "Elapsed time: 1143.000283 msecs"
+(let [c (into [] (shuffle (range 2e6)))
+      a (to-array c)]
+  (quick-bench (p/sort c))
+  (quick-bench (binding [p/*mutable* true] (p/sort c)))
+  (quick-bench (binding [p/*mutable* true] (p/sort a))))
 
-(let [a (object-array (shuffle (range 2e6)))]
-  (time (aget (binding [p/*mutable* true] (p/sort coll)) 100)))
-;; "Elapsed time: 78.95744 msecs"
-;; (0 1 2 3 4 5 6 7 8 9)
+;; 1185ms
+;; 1052ms
+;; 46ms
 ```
 
-As you can see, the conversion from immutable to mutable data structure processing the input is responsible for most of the sorting time. If you are lucky to work with arrays, sorting is one order of magnitude faster and more memory efficient.
+As you can see, the conversion into array is responsible for most of the sorting time. If you are lucky to work with arrays, sorting is one order of magnitude faster and more memory efficient.
 
 ### `p/external-sort`
 
