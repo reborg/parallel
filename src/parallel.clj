@@ -1,6 +1,6 @@
 (ns parallel
   (:refer-clojure :exclude [interleave eduction sequence frequencies
-                            count group-by sort min max pmap])
+                            count group-by sort min max amap])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
@@ -253,7 +253,7 @@
   ([cmp coll]
    (sort 8192 cmp coll))
   ([threshold cmp ^Object coll]
-   (let [a (if (.. coll getClass isArray) coll (object-array coll))]
+   (let [a (if (.. coll getClass isArray) coll (to-array coll))]
      (msort/sort threshold cmp a)
      (if *mutable* a (into [] a)))))
 
@@ -310,26 +310,24 @@
        (apply xrf clojure.core/max xforms)
        v))))
 
-(defn pmap
-  "Applies f in parallel to the elements in coll. It performs well also
-  on relatively small collections (>10k items) and trivial fns. It's not lazy
-  and needs to store a copy of the input to perform the transformation.
+(defn amap
+  "Applies f in parallel to the elements in the array.
   The threshold decides how big a chunk of computation should be before
   going sequential and it's given a default based on the number of
-  available cores. See benchmarks/bpmap.clj for benchmarks."
-  ([f coll]
-   (pmap
-     (quot (clojure.core/count coll)
-           (* 2 (.. Runtime getRuntime availableProcessors)))
-     f coll))
-  ([threshold f ^Object coll]
-   (let [a (if (.. coll getClass isArray) coll (object-array coll))]
-     (mcombine/map
-       (fn [low high ^objects a]
-         (loop [^int idx low]
-           (when (< idx high)
-             (aset a idx (f (aget a idx)))
-             (recur (unchecked-inc-int idx)))))
-       (fn [_ _])
-       threshold a)
-     (if *mutable* a (into [] a)))))
+  available cores."
+  ([f ^objects a]
+   (amap
+     (quot
+       (alength a)
+       (* 2 (.. Runtime getRuntime availableProcessors)))
+     f a))
+  ([threshold f ^objects a]
+   (mcombine/map
+     (fn [low high ^objects a]
+       (loop [idx low]
+         (when (< idx high)
+           (aset a idx (f (aget a idx)))
+           (recur (unchecked-inc idx)))))
+     (fn [_ _])
+     threshold a)
+   a))

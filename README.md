@@ -16,7 +16,7 @@ Ready:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
-| [`p/pmap`](#ppmap)                      | Parallel (not-lazy) `core/map`.
+| [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
 | [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
@@ -132,32 +132,27 @@ Caveats and known problems:
 
 * Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
 
-### `p/pmap`
+### `p/amap`
 
-`p/pmap` is a parallel version of `core/map` or a non-lazy version of `core/pmap`. It has the same simple interface:
-
-```clojure
-(subvec (p/pmap inc (range 1000000)) 0 10)
-;; [1 2 3 4 5 6 7 8 9 10]
-```
-
-You can call `p/pmap` with any collection type and it returns a vector. In the basic configuration above, `p/map` struggle to be faster than sequential `core/map` (it is around 30% slower), as it needs to convert the input and the output along with orchestrating threads. So if you are after maximum performance, consider the steps below:
-
-* Use the raw mutable object array output by setting the dynamic variable `*mutable*` to true. This produces a consistent speed-up, almost 50% faster than sequential (in the worst case scenario of a trivial transformation and small collection). The speed up increases the larger the collection.
-* Convert the input into a vector, or even better, use an object array directly. This produces another 50% increase.
-
-Here's an example which includes the suggested steps:
+`p/amap` is a parallel version of `core/amap`. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed version of the output:
 
 ```clojure
-(aget (binding [p/*mutable* true] (p/pmap inc (object-array (range 1000000)))) 1000)
-;; 1001
+
+(def c (range 2e6))
+(defn f [x] (if (zero? (rem x 2)) (* 0.3 x) (Math/sqrt x)))
+
+(let [a (to-array c)] (time (p/amap f a)))
+;; "Elapsed time: 34.955138 msecs"
+
+(let [^objects a (to-array c)] (time (amap a idx ret (f (aget a idx)))))
+;; "Elapsed time: 53.058256 msecs"
 ```
 
-If your primary data structures are native arrays, `p/pmap` is hard to beat. But even if you only allow mutable results there are good performances overall. `p/pmap` also has an advantage over `core/pmap` in terms of speed, assuming you don't need laziness. The `benchmark/bpmap.clj` namespace contains the benchmark results, but it's always good to measure performances in your own application to understand if `p/pmap` is doing a good job.
+`p/amap` uses the fork-join framework to update the array in parallel and it performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
 
 ### `p/count`
 
-`p/count` can speed up counting on collections when non-trivial transformations (and large collections) are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements:
+`p/count` can speed up counting on collections when non-trivial transformations are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements (in this case 1.2M):
 
 ```clojure
 (def xform
@@ -172,7 +167,7 @@ If your primary data structures are native arrays, `p/pmap` is hard to beat. But
 ;; 1200000
 ```
 
-`p/count` supports stateful transducers. In this example we are dropping 6250 elements from each of the 32 chunks (32x6250=200000):
+`p/count` is eager, transforming "coll" into a vector if it's not already a foldable collection (vectors, maps or reducers/Cat objects). Use `p/count` only if the transformation are altering the number of elements in the input collection, otherwise `core/count` would likely outperform `p/count` in most situation. `p/count` supports stateful transducers. In this example we are dropping 6250 elements from each of the 32 chunks (32 is the default number of chunks `p/count` operates on, so 32x6250=200k elements will be removed):
 
 ```clojure
 (def xform
@@ -188,8 +183,7 @@ If your primary data structures are native arrays, `p/pmap` is hard to beat. But
 ;; 1000000
 ```
 
-See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcount.clj) for benchmarks.
-`p/count` is eager, transforming "coll" into a vector if it's not already a foldable collection (vectors, maps or reducers/Cat objects).
+See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcount.clj) for additional benchmarks.
 
 ### `p/interleave`
 

@@ -152,7 +152,7 @@
     (let [c (into [] (shuffle (conj (range 100000) -3)))]
       (is (= 99998 (p/max c (map dec)))))))
 
-(deftest pmapv-test
+(deftest pamap-test
   (testing "sanity"
-    (let [c (into [] (range 100000))]
-      (is (= (map inc (range 10)) (take 10 (p/pmap inc c)))))))
+    (let [c (to-array (range 100000))]
+      (is (= (map inc (range 10)) (take 10 (p/amap inc c)))))))
