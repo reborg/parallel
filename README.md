@@ -2,7 +2,7 @@
 
 `parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate existing functions in the standard library, sometimes as drop-in replacement, sometimes with a very different semantic. If you see a function listed below in your project or if you use transducers, chances are you can speed-up your application using parallel. As with any library claiming to speed-up your code, there are too many variables influencing performances that cannot be tested in isolation: **please keep a benchmarking tool ready and measure each of the changes**.
 
-The library also provides additional transducers (not necessarily for parallel use) and supporting utilities. The functions already available have been tested and benchmarked and I consider them ready to use. Please report any issue or ideas for improvements, I'll be happy to help.
+The library also provides additional transducers (not necessarily for parallel use) and supporting utilities. The functions documented below have been tested and benchmarked and are ready to use. Please report any issue or ideas for improvements, I'll be happy to help.
 
 Current:
 
@@ -12,12 +12,12 @@ Current:
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
-| [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
+| [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 
 In the pipeline:
 
@@ -175,10 +175,6 @@ Caveats and known problems:
 ```
 
 See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcount.clj) for additional benchmarks.
-
-### `p/interleave`
-
-Like `clojure.core/interleave` in transducer version.
 
 ### `p/frequencies`
 
@@ -339,6 +335,10 @@ The degree of parallelism with which "fetchf" is invoked is equal to the number 
 ```
 
 As other parallel functions, `p/min` and `p/max` perform better on large vectors (> 500k elements). At 1 million elements `p/min` and `p/max` are already 50% faster than their sequential relatives, also depending on the number of available cores.
+
+### `p/interleave`
+
+Like `clojure.core/interleave` in transducer version. Docs wip.
 
 #### misc todo
 
