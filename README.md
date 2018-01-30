@@ -1,17 +1,10 @@
 ## parallel
 
-`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate existing functions
-in the standard library, sometimes as drop-in replacement, sometimes with a very different semantic.
+`parallel` is a library of parallel-enabled (not distributed) Clojure functions. Some are designed to emulate existing functions in the standard library, sometimes as drop-in replacement, sometimes with a very different semantic. If you see a function listed below in your project or if you use transducers, chances are you can speed-up your application using parallel. As with any library claiming to speed-up your code, there are too many variables influencing performances that cannot be tested in isolation: **please keep a benchmarking tool ready and measure each of the changes**.
 
-If you see a function listed below in your project or if you use transducers, chances are you can speed-up your application using the version provided here.
+The library also provides additional transducers (not necessarily for parallel use) and supporting utilities. The functions already available have been tested and benchmarked and I consider them ready to use. Please report any issue or ideas for improvements, I'll be happy to help.
 
-The library also provides additional transducers (not necessarily for parallel use) and supporting utilities.
-
-**Status:** project is public but not yet on Clojars. The functions already available have been tested and benchmarked and I consider them ready for use. Please report any issue or ideas for new parallel functions, I'm happy to help.
-
-#### Content
-
-Ready:
+Current:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
@@ -31,19 +24,17 @@ In the pipeline:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
-| `p/filterv`                             | Filter a vector in parallel and returns a vector.
 | `p/let`                                 | Parallel local binding
 
 ### How to use the library
 
-All functions are available through the `parallel` namespace.
-Add the following to your project dependencies:
+All functions are available through the `parallel` namespace.  Add the following to your project dependencies:
 
 ```clojure
 [parallel "0.1"]
 ```
 
-Then require at the REPL with:
+Require at the REPL with:
 
 ```clojure
 (require '[parallel :as p])
@@ -56,7 +47,7 @@ Or in your namespace as:
   (:require [parallel :as p]))
 ```
 
-## API Docs
+## API
 
 ### `p/fold`, `p/xrf` and `p/folder`
 
@@ -349,7 +340,7 @@ The degree of parallelism with which "fetchf" is invoked is equal to the number 
 
 As other parallel functions, `p/min` and `p/max` perform better on large vectors (> 500k elements). At 1 million elements `p/min` and `p/max` are already 50% faster than their sequential relatives, also depending on the number of available cores.
 
-#### todo
+#### misc todo
 
 * [ ] `p/fold` Enable extend to (thread-safe) Java collections
 * [ ] `p/fold` Enable extend on Cat objects
@@ -358,8 +349,7 @@ As other parallel functions, `p/min` and `p/max` perform better on large vectors
 * [ ] Generative testing?
 * [ ] CI
 
-
 ## License
 
-Copyright © 2017 Renzo Borgatti @reborg http://reborg.net
+Copyright © 2018 Renzo Borgatti @reborg http://reborg.net
 Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.

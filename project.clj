@@ -7,8 +7,7 @@
   ; :source-paths ["src" "playground" "benchmarks"]
   :source-paths ["src" "benchmarks"]
   :java-source-paths ["java"]
-  :profiles {:dev {:dependencies [[criterium  "0.4.4"]]
-                   :plugins []}}
-  :jvm-opts ["-Xmx4g" "-server"]
-  :test-refresh {:watch-dirs ["src" "test"]
-                 :refresh-dirs ["src" "test"]})
+  :uberjar-name "parallel.jar"
+  :profiles {:dev {:dependencies [[criterium  "0.4.4"]] :plugins []}}
+  :jvm-opts ["-Xmx2g" "-server"]
+  :test-refresh {:watch-dirs ["src" "test"] :refresh-dirs ["src" "test"]})
