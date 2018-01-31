@@ -37,14 +37,14 @@ All functions are available through the `parallel` namespace.  Add the following
 Require at the REPL with:
 
 ```clojure
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 ```
 
 Or in your namespace as:
 
 ```clojure
 (ns mynamespace
-  (:require [parallel :as p]))
+  (:require [parallel.core :as p]))
 ```
 
 ## API

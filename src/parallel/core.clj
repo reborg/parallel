@@ -1,4 +1,4 @@
-(ns parallel
+(ns parallel.core
   (:refer-clojure :exclude [interleave eduction sequence frequencies
                             count group-by sort min max amap])
   (:require [parallel.foldmap :as fmap]
