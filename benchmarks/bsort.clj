@@ -2,7 +2,7 @@
 
 (require '[criterium.core :refer [quick-benchmark]])
 (defmacro b [expr] `(* 1000. (first (:mean (quick-benchmark ~expr {}))))) ;; mssecs
-(require '[parallel :as p] :reload)
+(require '[parallel.core :as p] :reload)
 (import '[java.util Arrays])
 
 (defn sort-some [percent coll]

@@ -1,6 +1,6 @@
 (ns binterleave)
 
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 (require '[criterium.core :refer [bench quick-bench]])
 
 (let [coll (range 1e5)]

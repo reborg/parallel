@@ -1,7 +1,7 @@
 (ns bcount)
 
 (require '[criterium.core :refer [bench quick-bench]])
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 
 ;; core/count
 

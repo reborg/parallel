@@ -1,6 +1,6 @@
 (ns groupby)
 
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 (require '[criterium.core :refer [bench quick-bench]])
 
 (def ^:const magnitude 1e5)

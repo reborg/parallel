@@ -1,7 +1,7 @@
 (ns bminmax)
 
 (require '[criterium.core :refer [quick-bench]])
-(require '[parallel :as p] :reload)
+(require '[parallel.core :as p] :reload)
 ; (require '[clojure.core.reducers :as r] :reload)
 (def coll  (into [] (conj (shuffle (range 1000000)) -9)))
 (def coll2 (into [] (conj (shuffle (range 5000000)) -9)))

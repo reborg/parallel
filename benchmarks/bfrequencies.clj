@@ -1,6 +1,6 @@
 (ns bfrequencies)
 
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 (require '[criterium.core :refer [bench quick-bench]])
 (require '[clojure.core.reducers :as r])
 

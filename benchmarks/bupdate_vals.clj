@@ -1,6 +1,6 @@
 (ns bupdate-vals)
 
-(require '[parallel :as p])
+(require '[parallel.core :as p])
 (require '[criterium.core :refer [bench quick-bench]])
 
 (defn large-map [i] (into {} (map vector (range i) (range i))))

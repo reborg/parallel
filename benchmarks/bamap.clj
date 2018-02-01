@@ -1,7 +1,7 @@
 (ns bamap)
 
 (require '[criterium.core :refer [quick-bench]])
-(require '[parallel :as p] :reload)
+(require '[parallel.core :as p] :reload)
 
 (let [c (range 50000)] (quick-bench (doall (map inc c))))                             ;; 1.9
 (let [c (to-array (range 50000))] (quick-bench (amap c idx ret (inc (aget c idx)))))  ;; 0.4

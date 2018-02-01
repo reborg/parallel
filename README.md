@@ -25,13 +25,14 @@ In the pipeline:
 |-----------------------------------------| ---------------------------------------------------
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/let`                                 | Parallel local binding
+| `p/or`, `p/and`                         | Verify conditions in parallel
 
 ### How to use the library
 
 All functions are available through the `parallel` namespace.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.1"]
+[parallel "0.2"]
 ```
 
 Require at the REPL with:
