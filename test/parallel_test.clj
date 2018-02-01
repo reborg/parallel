@@ -1,6 +1,6 @@
 (ns parallel-test
   (:import [clojure.lang RT])
-  (:require [parallel :as p]
+  (:require [parallel.core :as p]
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
 
