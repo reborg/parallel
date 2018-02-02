@@ -25,11 +25,11 @@ In the pipeline:
 |-----------------------------------------| ---------------------------------------------------
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/let`                                 | Parallel local binding
-| `p/or`, `p/and`                         | Verify conditions in parallel
+| `p/or` `p/and`                          | Conditions in parallel
 
 ### How to use the library
 
-All functions are available through the `parallel` namespace.  Add the following to your project dependencies:
+All functions are available through the `parallel.core` namespace.  Add the following to your project dependencies:
 
 ```clojure
 [parallel "0.2"]
@@ -382,6 +382,10 @@ As other parallel functions, `p/min` and `p/max` perform better on large vectors
 ### `p/interleave`
 
 Like `clojure.core/interleave` in transducer version. Docs wip.
+
+## Development
+
+* `lein test` to run the test suite.
 
 #### misc todo
 
