@@ -17,6 +17,7 @@ Current:
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
+| [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 
 In the pipeline:
@@ -32,7 +33,7 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.2"]
+[parallel "0.3"]
 ```
 
 Require at the REPL with:
@@ -377,7 +378,52 @@ The degree of parallelism with which "fetchf" is invoked is equal to the number 
 ;; 99997
 ```
 
-As other parallel functions, `p/min` and `p/max` perform better on large vectors (> 500k elements). At 1 million elements `p/min` and `p/max` are already 50% faster than their sequential relatives, also depending on the number of available cores.
+### `p/distinct`
+
+`p/distinct` returns a sequence of the distinct items in "coll":
+
+```clojure
+(let [c (apply concat (repeat 20 (range 100)))]
+  (take 10 (p/distinct c)))
+;; (0 1 2 3 4 5 6 7 8 9)
+```
+
+The sequence is not-lazy and can return in any order. We can see this by supplying a transducer list (without using `comp`) to change from integers to keywords:
+
+```clojure
+(let [c (apply concat (repeat 20 (range 100)))]
+  (take 10 (p/distinct c (map str) (map keyword))))
+;; (:59 :16 :39 :47 :28 :58 :36 :15 :25 :18)
+```
+
+`p/distinct` does not support `nil`, which needs to be removed (you can pass `(remove nil?)` as a transducer to the argument list). Performance of `p/distinct` are quite good on both small and large collections:
+
+```clojure
+(require '[criterium.core :refer [quick-bench]])
+
+(let [small (apply concat (repeat 20 (range 100)))
+      large (apply concat (repeat 200 (range 10000)))]
+  (quick-bench (p/distinct small))
+  (quick-bench (p/distinct large)))
+;; Execution time mean : 160.949448 µs
+;; Execution time mean : 77.772233 ms
+
+(let [small (apply concat (repeat 20 (range 100)))
+      large (apply concat (repeat 200 (range 10000)))]
+  (quick-bench (doall (distinct small)))
+  (quick-bench (doall (distinct large))))
+;; Execution time mean : 565.503835 µs
+;; Execution time mean : 862.702828 ms
+```
+
+You can additionally increase `p/distinct` speed by using a vector input and forcing mutable output (in this case `p/distinct` returns an `java.util.Set` interface):
+
+
+```clojure
+(let [large (into [] (apply concat (repeat 200 (range 10000))))]
+  (quick-bench (binding [p/*mutable* true] (p/distinct large))))
+;; Execution time mean : 37.703288 ms
+```
 
 ### `p/interleave`
 

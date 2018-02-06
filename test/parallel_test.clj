@@ -156,3 +156,16 @@
   (testing "sanity"
     (let [c (to-array (range 100000))]
       (is (= (map inc (range 10)) (take 10 (p/amap inc c)))))))
+
+(deftest distinct-test
+  (let [c (shuffle (apply concat (take 5 (repeat (range 10000)))))]
+    (testing "sanity"
+      (is (= (sort (distinct c)) (sort (p/distinct c)))))
+    (testing "with transducers"
+      (is (= [1 3 5 7 9] (take 5 (sort (p/distinct c (map inc) (filter odd?)))))))
+    (testing "equality semantic"
+      (is (= (sort (distinct (map vector c c)))
+             (sort (p/distinct (map vector c c))))))
+    (testing "mutability on"
+      (is (= #{1 2 3}
+             (into #{} (binding [p/*mutable* true] (p/distinct [1 2 3]))))))))

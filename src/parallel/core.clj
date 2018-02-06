@@ -1,6 +1,6 @@
 (ns parallel.core
   (:refer-clojure :exclude [interleave eduction sequence frequencies
-                            count group-by sort min max amap])
+                            count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
@@ -327,3 +327,16 @@
      (fn [_ _])
      threshold a)
    a))
+
+(defn distinct
+  "Returns a non-lazy and unordered sequence of the distinct elements in coll.
+  It does not support null values that need to be removed before calling.
+  Also accepts an optional list of transducers that is applied before removing
+  duplicates. When bound with *mutable* dynamic var, returns a java.util.Set."
+  [coll & xforms]
+  (let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+        combinef (fn ([] m) ([_ _]))
+        rf (fn [^Map m k] (.put m k 1) m)]
+    (fold combinef (apply xrf rf xforms) coll)
+    (if *mutable* (.keySet m) (enumeration-seq (.keys m)))))
