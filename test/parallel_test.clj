@@ -169,3 +169,23 @@
     (testing "mutability on"
       (is (= #{1 2 3}
              (into #{} (binding [p/*mutable* true] (p/distinct [1 2 3]))))))))
+
+(deftest reverse-test
+  (testing "swap reverse simmetrical regions in arrays"
+    (let [s (range 10)]
+      (is (= s (let [a (object-array s)] (p/arswap identity 0 9 0 a) (into [] a))))
+      (is (= (reverse s) (let [a (object-array s)] (p/arswap identity 0 9 5 a) (into [] a))))
+      (is (= (reverse s) (let [a (object-array s)] (p/arswap identity 0 9 10 a) (into [] a))))
+      (is (= [9 8 2 3 4 5 6 7 1 0] (let [a (object-array s)] (p/arswap identity 0 9 2 a) (into [] a))))
+      (is (= [9 8 7 6 5 4 3 2 1] (let [a (object-array (rest s))] (p/arswap identity 0 8 4 a) (into [] a))))
+      (is (= [9 8 7 4 5 6 3 2 1] (let [a (object-array (rest s))] (p/arswap identity 0 8 3 a) (into [] a))))))
+  (testing "swap reverse with transform"
+    (let [s (range 10)]
+      (is (= ["9" "8" 2 3 4 5 6 7 "1" "0"] (let [a (object-array s)] (p/arswap str 0 9 2 a) (into [] a))))
+      (is (= [:9 :8 :7 4 5 6 :3 :2 :1] (let [a (object-array (rest s))] (p/arswap (comp keyword str) 0 8 3 a) (into [] a))))))
+  (testing "sanity"
+    (is (= (reverse (range 1e2))
+           (let [a (object-array (range 1e2))] (p/armap identity a) (into [] a))))
+    (let [xs (shuffle (map str (range 1e4)))
+          a (object-array xs)]
+      (is (= (reverse xs) (do (p/armap 100 identity a) (into [] a)))))))

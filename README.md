@@ -9,7 +9,6 @@ Current:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
-| [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
@@ -18,6 +17,8 @@ Current:
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
+| [`p/amap`](#pamap)                      | Parallel array transformation.
+| [`p/armap`](#pramap)                    | Parallel array reversal with transformation.
 | [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 
 In the pipeline:
@@ -124,24 +125,6 @@ The single argument for transducers is a vector pair containing a key and a valu
 Caveats and known problems:
 
 * Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
-
-### `p/amap`
-
-`p/amap` is a parallel version of `core/amap`. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed version of the output:
-
-```clojure
-
-(def c (range 2e6))
-(defn f [x] (if (zero? (rem x 2)) (* 0.3 x) (Math/sqrt x)))
-
-(let [a (to-array c)] (time (p/amap f a)))
-;; "Elapsed time: 34.955138 msecs"
-
-(let [^objects a (to-array c)] (time (amap a idx ret (f (aget a idx)))))
-;; "Elapsed time: 53.058256 msecs"
-```
-
-`p/amap` uses the fork-join framework to update the array in parallel and it performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
 
 ### `p/count`
 
@@ -425,11 +408,63 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 ;; Execution time mean : 37.703288 ms
 ```
 
+### `p/amap`
+
+`p/amap` is a parallel version of `core/amap`. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed version of the output:
+
+```clojure
+
+(def c (range 2e6))
+(defn f [x] (if (zero? (rem x 2)) (* 0.3 x) (Math/sqrt x)))
+
+(let [a (to-array c)] (time (p/amap f a)))
+;; "Elapsed time: 34.955138 msecs"
+
+(let [^objects a (to-array c)] (time (amap a idx ret (f (aget a idx)))))
+;; "Elapsed time: 53.058256 msecs"
+```
+
+`p/amap` uses the fork-join framework to update the array in parallel and it performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
+
+### `p/ramap`
+
+`p/ramap` is similar to `p/amap` but it also inverts the array. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed-reverse version of the output. `p/armap` performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. Here's for example a reverse-complement of some random DNA strand:
+
+```clojure
+(require '[criterium.core :refer [quick-bench]])
+
+(defn random-dna [n] (repeatedly n #(rand-nth [\a \c \g \t])))
+(def compl {\a \t \t \a \c \g \g \c})
+
+(defn armap
+  "A fair sequential comparison"
+  [f ^objects a]
+  (loop [i 0]
+    (when (< i (quot (alength a) 2))
+      (let [tmp (f (aget a i))
+            j (- (alength a) i 1)]
+        (aset a i (f (aget a j)))
+        (aset a j tmp))
+      (recur (unchecked-inc i)))))
+
+(let [a (to-array (random-dna 1e6))]
+  (quick-bench (p/armap compl a)))
+;; "Elapsed time: 39.195143 msecs"
+
+(let [a (to-array (random-dna 1e6))]
+  (quick-bench (armap compl a)))
+;; "Elapsed time: 70.286622 msecs"
+```
+
+You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
+
 ### `p/interleave`
 
 Like `clojure.core/interleave` in transducer version. Docs wip.
 
 ## Development
+
+There are no dependencies other than Java and Clojure.
 
 * `lein test` to run the test suite.
 
@@ -439,8 +474,6 @@ Like `clojure.core/interleave` in transducer version. Docs wip.
 * [ ] `p/fold` Enable extend on Cat objects
 * [ ] `p/fold` operates on a group of keys for hash-maps.
 * [ ] A foldable reader of some sort for large files.
-* [ ] Generative testing?
-* [ ] CI
 
 ## License
 

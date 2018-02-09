@@ -4,6 +4,7 @@
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
+            [parallel.fork-middle :as forkm]
             [clojure.core.reducers :as r]
             [clojure.core.protocols :as p]
             [clojure.java.io :as io])
@@ -340,3 +341,26 @@
         rf (fn [^Map m k] (.put m k 1) m)]
     (fold combinef (apply xrf rf xforms) coll)
     (if *mutable* (.keySet m) (enumeration-seq (.keys m)))))
+
+(defn arswap
+  "Arrays reverse-swap of the regions identified by:
+  [low, low + radius]....[high - radius, high]
+  Optionally takes transformation f to apply to each item.
+  Preconditions: (pos? (alength a)), (< low high), (pos? radius)"
+  [f low high radius ^objects a]
+  (loop [left low right high]
+    (when (and (< left right) (< left (+ low radius)))
+      (let [tmp (f (aget a left))]
+        (aset a left (f (aget a right)))
+        (aset a right tmp)
+        (recur (inc left) (dec right))))) a)
+
+(defn armap
+  "Applies f in parallel over the reverse of the array.
+  The threshold decides how big is the chunk of sequential
+  computation, with a default of alength / twice the CPUs.
+  Performs better than sequential for non-trivial transforms."
+  ([f ^objects a]
+   (armap (quot (alength a) (* 2 ncpu)) f a))
+  ([threshold f ^objects a]
+   (forkm/submit f arswap threshold a) a))
