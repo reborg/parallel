@@ -355,6 +355,17 @@
         (aset a right tmp)
         (recur (inc left) (dec right))))) a)
 
+(defn- sequential-armap
+  "Reverse an array."
+  [f ^objects a]
+  (loop [i 0]
+    (when (< i (quot (alength a) 2))
+      (let [tmp (f (aget a i))
+            j (- (alength a) i 1)]
+        (aset a i (f (aget a j)))
+        (aset a j tmp))
+      (recur (unchecked-inc i)))))
+
 (defn armap
   "Applies f in parallel over the reverse of the array.
   The threshold decides how big is the chunk of sequential
@@ -363,4 +374,6 @@
   ([f ^objects a]
    (armap (quot (alength a) (* 2 ncpu)) f a))
   ([threshold f ^objects a]
-   (forkm/submit f arswap threshold a) a))
+   (if (pos? threshold)
+     (forkm/submit f arswap threshold a)
+     (sequential-armap f a)) a))
