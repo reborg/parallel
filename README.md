@@ -18,7 +18,7 @@ Current:
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
-| [`p/armap`](#pramap)                    | Parallel array reversal with transformation.
+| [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
 | [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 
 In the pipeline:
@@ -426,9 +426,9 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 
 `p/amap` uses the fork-join framework to update the array in parallel and it performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
 
-### `p/ramap`
+### `p/armap`
 
-`p/ramap` is similar to `p/amap` but it also inverts the array. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed-reverse version of the output. `p/armap` performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. Here's for example a reverse-complement of some random DNA strand:
+`p/armap` is similar to `p/amap` but it also inverts the array. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed-reverse version of the output. `p/armap` performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. Here's for example a reverse-complement of some random DNA strand:
 
 ```clojure
 (require '[criterium.core :refer [quick-bench]])

@@ -2,6 +2,8 @@
 
 ### 0.4
 
+* Added `p/armap`
+
 ### 0.3
 
 * Added `p/distinct`
