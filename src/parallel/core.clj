@@ -345,7 +345,7 @@
 (defn arswap
   "Arrays reverse-swap of the regions identified by:
   [low, low + radius]....[high - radius, high]
-  Optionally takes transformation f to apply to each item.
+  Takes transformation f to apply to each item.
   Preconditions: (pos? (alength a)), (< low high), (pos? radius)"
   [f low high radius ^objects a]
   (loop [left low right high]
