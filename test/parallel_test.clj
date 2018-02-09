@@ -184,8 +184,11 @@
       (is (= ["9" "8" 2 3 4 5 6 7 "1" "0"] (let [a (object-array s)] (p/arswap str 0 9 2 a) (into [] a))))
       (is (= [:9 :8 :7 4 5 6 :3 :2 :1] (let [a (object-array (rest s))] (p/arswap (comp keyword str) 0 8 3 a) (into [] a))))))
   (testing "sanity"
-    (is (= (reverse (range 1e2))
-           (let [a (object-array (range 1e2))] (p/armap identity a) (into [] a))))
-    (let [xs (shuffle (map str (range 1e4)))
+    (is (= nil (p/armap identity nil)))
+    (is (= (reverse ()) (let [a (object-array ())] (p/armap identity a) (into [] a))))
+    (is (= (reverse (range 1)) (let [a (object-array (range 1))] (p/armap identity a) (into [] a))))
+    (is (= (reverse (range 5)) (let [a (object-array (range 5))] (p/armap identity a) (into [] a))))
+    (is (= (reverse (range 1e2)) (let [a (object-array (range 1e2))] (p/armap identity a) (into [] a))))
+    (let [xs (shuffle (range 11))
           a (object-array xs)]
-      (is (= (reverse xs) (do (p/armap 100 identity a) (into [] a)))))))
+      (is (= (reverse (map str xs)) (do (p/armap str a) (into [] a)))))))

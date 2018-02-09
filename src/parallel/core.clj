@@ -349,7 +349,7 @@
   Preconditions: (pos? (alength a)), (< low high), (pos? radius)"
   [f low high radius ^objects a]
   (loop [left low right high]
-    (when (and (< left right) (< left (+ low radius)))
+    (when (and (<= left right) (< left (+ low radius)))
       (let [tmp (f (aget a left))]
         (aset a left (f (aget a right)))
         (aset a right tmp)
@@ -372,8 +372,10 @@
   computation, with a default of alength / twice the CPUs.
   Performs better than sequential for non-trivial transforms."
   ([f ^objects a]
-   (armap (quot (alength a) (* 2 ncpu)) f a))
+   (when a
+     (armap (quot (alength a) (* 2 ncpu)) f a)))
   ([threshold f ^objects a]
-   (if (pos? threshold)
-     (forkm/submit f arswap threshold a)
-     (sequential-armap f a)) a))
+   (when (and a (pos? (alength a)))
+     (if (pos? threshold)
+       (forkm/submit f arswap threshold a)
+       (sequential-armap f a))) a))
