@@ -431,10 +431,10 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 `p/armap` is similar to `p/amap` but it also inverts the array. It takes an array of objects and a transformation "f" and it mutates the input to produce the transformed-reverse version of the output.
 
 ```clojure
-(let [a (object-array [8 2 0 9 2 2 90 1 2])]
+(let [a (object-array [0 9 8 2 0 9 2 2 90 1 2])]
   (p/armap (comp keyword str) a)
   (into [] a))
-;; [:2 :1 :90 :2 2 :9 :0 :2 :8]
+;; [:2 :1 :90 :2 :2 :9 :0 :2 :8]
 ```
 
 `p/armap` performs better than sequential for non-trivial transformations, otherwise the thread orchestration dominates the computational cost. Here's for example a reverse-complement of some random DNA strand:
