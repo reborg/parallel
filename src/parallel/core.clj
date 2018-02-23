@@ -11,12 +11,13 @@
   (:import
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
-    [java.io File]
+    [java.io File DefaultFileSystem]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* true)
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
 
 (def ^:dynamic *mutable* false)
@@ -320,13 +321,13 @@
    (amap (quot (alength a) (* 2 ncpu)) f a))
   ([threshold f ^objects a]
    (mcombine/map
-     (fn [low high ^objects a]
+     (fn [low high]
        (loop [idx low]
          (when (< idx high)
            (aset a idx (f (aget a idx)))
            (recur (unchecked-inc idx)))))
      (fn [_ _])
-     threshold a)
+     threshold (alength a))
    a))
 
 (defn distinct
@@ -379,3 +380,4 @@
      (if (pos? threshold)
        (forkm/submit f arswap threshold a)
        (sequential-armap f a))) a))
+
