@@ -192,3 +192,7 @@
     (let [xs (shuffle (range 11))
           a (object-array xs)]
       (is (= (reverse (map str xs)) (do (p/armap str a) (into [] a)))))))
+
+(deftest slurping
+  (testing "slurping sanity"
+    (is (= (slurp "test/words") (p/slurp "test/words")))))

@@ -19,6 +19,7 @@ Current:
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
+| [`p/slurp`](#pslurp)                    | Parallel slurping files as strings or other objects.
 | [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
 
 In the pipeline:
@@ -466,6 +467,22 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 ```
 
 You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
+
+### `p/slurp`
+
+`p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local file paths (no URLs or other input streams):
+
+```clojure
+(take 10 (.split (p/slurp "test/words") "\n"))
+;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
+```
+
+In addition `p/slurp` offers a way to interpret the loaded bytes differently from a string:
+
+```clojure
+(take 10 (.split (p/slurp "test/words") "\n"))
+;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
+```
 
 ### `p/interleave`
 

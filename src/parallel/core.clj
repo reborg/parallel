@@ -1,6 +1,7 @@
 (ns parallel.core
   (:refer-clojure :exclude [interleave eduction sequence frequencies
-                            count group-by sort min max amap distinct])
+                            count group-by sort min max amap distinct
+                            slurp])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
@@ -11,7 +12,7 @@
   (:import
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
-    [java.io File DefaultFileSystem]
+    [java.io File FileInputStream]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
@@ -273,7 +274,7 @@
   ([cmp fetchf ids]
    (external-sort 512 compare fetchf ids))
   ([n cmp fetchf ids]
-   (letfn [(load-chunk [fname] (read-string (slurp fname)))
+   (letfn [(load-chunk [fname] (read-string (clojure.core/slurp fname)))
            (save-chunk! [data]
              (let [file (File/createTempFile "mergesort-" ".tmp")]
                (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
@@ -381,3 +382,21 @@
        (forkm/submit f arswap threshold a)
        (sequential-armap f a))) a))
 
+(defn slurp
+  ([fname]
+   (slurp fname (fn parsef [^bytes a] (String. a "UTF-8"))))
+  ([^String fname parsef]
+   (let [file (File. fname)
+         size (.length file)
+         threshold (quot size (* 4 ncpu))
+         a (byte-array size)]
+     (mcombine/map
+       (fn read-chunk [low high]
+         (let [fis (FileInputStream. file)]
+           (try
+             (.skip fis low)
+             (.read fis a low (- high low))
+             (finally (.close fis)))))
+       (fn [_ _])
+       threshold size)
+     (if *mutable* a (parsef a)))))
