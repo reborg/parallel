@@ -1,11 +1,11 @@
 package jdk.internal.misc;
 
-public final class Unsafe2 {
+public final class Unsafe {
 
     private static native void registerNatives();
     static { registerNatives(); }
-    private Unsafe2() {}
-    public static final Unsafe2 instance = new Unsafe2();
+    private Unsafe() {}
+    public static final Unsafe instance = new Unsafe();
 
     public void setMemory(Object o, long offset, long bytes, byte value) {
         if (bytes == 0) {

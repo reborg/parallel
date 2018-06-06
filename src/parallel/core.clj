@@ -383,6 +383,7 @@
        (sequential-armap f a))) a))
 
 (defn slurp
+  ;; https://github.com/clojure/clojure-contrib/blob/master/modules/mmap/src/main/clojure/clojure/contrib/mmap.clj
   ([fname]
    (slurp fname (fn parsef [^bytes a] (String. a "UTF-8"))))
   ([^String fname parsef]

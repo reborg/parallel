@@ -1,26 +1,21 @@
 package parallel;
 
-import jdk.internal.misc.Unsafe2;
-
-import java.lang.reflect.Field;
+import jdk.internal.misc.Unsafe;
 
 public class Native {
 
     public final long startIndex;
 
-    public static Unsafe2 initUnsafe() {
-        Field f = null;
+    private static Class<?> unsafeClass;
+    public static Unsafe unsafe = null;
+
+    static {
         try {
-            f = Unsafe2.class.getDeclaredField("theUnsafe");
-            f.setAccessible(true);
-            return (Unsafe2) f.get(null);
-        } catch (Exception e) {
+            unsafeClass = Class.forName("jdk.internal.misc.Unsafe", false, Thread.currentThread().getContextClassLoader());
+        } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-        return null;
     }
-
-    public static Unsafe2 unsafe = initUnsafe();
 
     public Native(long size) {
         startIndex = unsafe.allocateMemory(size);
