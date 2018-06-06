@@ -4,20 +4,6 @@
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
 
-(deftest interleave-test
-  (testing "interleave with sequence"
-    (is (= [0 :a 1 :b 2 :c] (sequence (p/interleave [:a :b :c]) (range 3))))
-    (are [x y] (= x y)
-         (sequence (p/interleave [1 2]) [3 4]) (interleave [3 4] [1 2])
-         (sequence (p/interleave [1]) [3 4]) (interleave [3 4] [1])
-         (sequence (p/interleave [1 2]) [3]) (interleave [3] [1 2])
-         (sequence (p/interleave []) [3 4]) (interleave [3 4] [])
-         (sequence (p/interleave [1 2]) []) (interleave [] [1 2])
-         (sequence (p/interleave []) []) (interleave [] [])))
-  (testing "interleave with eduction"
-    (is (= [1 0 2 1 3 2 4 3 5 4 6 5 7 6 8 7 9 8 10 9]
-           (eduction (map inc) (p/interleave (range)) (filter number?) (range 10))))))
-
 (deftest frequencies-test
   (testing "frequencies with xform"
     (is (= 5000 (count (p/frequencies (range 1e4) (filter odd?)))))

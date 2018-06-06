@@ -1,5 +1,5 @@
 (ns parallel.core
-  (:refer-clojure :exclude [interleave eduction sequence frequencies
+  (:refer-clojure :exclude [eduction sequence frequencies
                             count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
@@ -21,23 +21,6 @@
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
 
 (def ^:dynamic *mutable* false)
-
-(defn interleave
-  [coll]
-  (fn [rf]
-    (let [fillers (volatile! (seq coll))]
-      (fn
-        ([] (rf))
-        ([result] (rf result))
-        ([result input]
-         (if-let [[filler] @fillers]
-           (let [step (rf result input)]
-             (if (reduced? step)
-               step
-               (do
-                 (vswap! fillers next)
-                 (rf step filler))))
-           (reduced result)))))))
 
 (defn- foldable? [coll]
   (or (map? coll)

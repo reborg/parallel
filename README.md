@@ -19,7 +19,7 @@ Current:
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
-| [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
+| [`xf/interleave`](#pinterleave)         | `core/interleave` transducer
 
 In the pipeline:
 
@@ -28,10 +28,11 @@ In the pipeline:
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
 | `p/let`                                 | Parallel local binding
 | `p/or` `p/and`                          | Conditions in parallel
+| `p/slurp`                               | Parallel slurping
 
 ### How to use the library
 
-All functions are available through the `parallel.core` namespace.  Add the following to your project dependencies:
+All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
 [parallel "0.3"]
@@ -40,14 +41,15 @@ All functions are available through the `parallel.core` namespace.  Add the foll
 Require at the REPL with:
 
 ```clojure
-(require '[parallel.core :as p])
+(require '[parallel.core :as p] [parallel.xf :as xf])
 ```
 
 Or in your namespace as:
 
 ```clojure
 (ns mynamespace
-  (:require [parallel.core :as p]))
+  (:require [parallel.core :as p]
+            [parallel.xf :as xf]))
 ```
 
 ## API
@@ -467,7 +469,7 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 
 You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
 
-### `p/interleave`
+### `xf/interleave`
 
 Like `clojure.core/interleave` in transducer version. Docs wip.
 
