@@ -19,7 +19,8 @@ Current:
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
-| [`xf/interleave`](#pinterleave)         | `core/interleave` transducer
+| [`xf/interleave`](#xfinterleave)         | Like `core/interleave`, transducer version.
+| [`xf/pmap`](#xfmap)                      | Like `core/pmap`, transducer version.
 
 In the pipeline:
 
@@ -471,7 +472,46 @@ You can optionally pass in a "threshold" which indicates how small the chunk of 
 
 ### `xf/interleave`
 
-Like `clojure.core/interleave` in transducer version. Docs wip.
+Like `clojure.core/interleave` but in transducer version. When `xf/interleave` is instantiated, it takes a "filler" collection. The items from the collection are used to interleave the others items coming from the main transducing sequence:
+
+```clojure
+(sequence
+  (comp
+    (map inc)
+    (xf/interleave [100 101 102 103 104 105])
+    (filter odd?)
+    (map str))
+  [3 6 9 12 15 18 21 24 37 30])
+;; ("7" "101" "13" "103" "19" "105")
+```
+
+The main transducing process runs until there are items in the filler sequence (those starting at 100 in the example). You can provide an infinite sequence to be sure all results are interleaved:
+
+```clojure
+(sequence
+  (comp
+    (map inc)
+    (xf/interleave (range))
+    (filter odd?)
+    (map str))
+  [3 6 9 12 15 18 21 24 37 30])
+;; ("7" "1" "13" "3" "19" "5" "25" "7" "31" "9")
+```
+
+### `xf/pmap`
+
+`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like `core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `core/map`, `xf/pmap` processes items in parallel up to 32 simultaneously (with physical parallelism equal to the number of available cores):
+
+```clojure
+(defn heavyf [x] (Thread/sleep 1000) (inc x))
+
+(time (transduce (comp (map heavyf) (filter odd?)) + (range 10)))
+;; 10025ms
+(time (transduce (comp (xf/pmap heavyf) (filter odd?)) + (range 10)))
+;; 1006ms
+```
+
+`xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and performance of "f" applied to the input are uniform. If one `(f item)` takes much more than the others, the current 32-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources.
 
 ## Development
 
