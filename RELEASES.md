@@ -2,7 +2,8 @@
 
 ### 0.4
 
-* Added `p/armap`
+* Added `p/armap`, parallel array reverse.
+* Added `xf/pmap`, transducer version of `core/pmap`.
 
 ### 0.3
 
