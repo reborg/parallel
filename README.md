@@ -20,7 +20,7 @@ Current:
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
 | [`xf/interleave`](#xfinterleave)         | Like `core/interleave`, transducer version.
-| [`xf/pmap`](#xfmap)                      | Like `core/pmap`, transducer version.
+| [`xf/pmap`](#xfpmap)                      | Like `core/pmap`, transducer version.
 
 In the pipeline:
 
