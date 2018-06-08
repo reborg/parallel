@@ -19,8 +19,9 @@ Current:
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
-| [`xf/interleave`](#xfinterleave)         | Like `core/interleave`, transducer version.
-| [`xf/pmap`](#xfpmap)                      | Like `core/pmap`, transducer version.
+| [`xf/interleave`](#xfinterleave)        | Like `core/interleave`, transducer version.
+| [`xf/pmap`](#xfpmap)                    | Like `core/pmap`, transducer version.
+| [`xf/identity`](#xfidentity)            | Alternative identity transducer to `core/identity`
 
 In the pipeline:
 
@@ -512,6 +513,61 @@ The main transducing process runs until there are items in the filler sequence (
 ```
 
 `xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and performance of "f" applied to the input are uniform. If one `(f item)` takes much more than the others, the current 32-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources.
+
+### `xf/identity`
+
+`xf/identity` works similarly to `(map identity)` or just `identity` as identity transducer. An identity transducer should offer the option for a no-op placeholder for those cases in which a transformation is not requested, for example:
+
+```clojure
+(def config false)
+
+(defn build-massive-xform []
+  (when config
+    (comp (map inc) (filter odd?))))
+
+(sequence (or (build-massive-xform) identity) (range 5))
+;; (0 1 2 3 4)
+```
+
+`core/identity` works fine as a transducer in most cases, except when it comes to multiple inputs for which it requires a definition of what "identity" means. We can fix it with another transducer to transform the input back into a single item:
+
+```clojure
+(sequence (or (build-massive-xform) identity) (range 5) (range 5))
+;; ArityException Wrong number of args (3)
+
+(sequence (or (build-massive-xform) (comp (map list) identity)) (range 5) (range 5))
+;; ((0 0) (1 1) (2 2) (3 3) (4 4))
+```
+
+`xf/identity` is a lightweight transducer that takes care of primarily of this case, by assuming the convention that in case of multiple inputs the "identity" operation wraps around the passed arguments:
+
+```clojure
+(sequence (or (build-massive-xform) xf/identity) (range 5))
+;; (0 1 2 3 4)
+
+(sequence (or (build-massive-xform) xf/identity) (range 5) (range 5))
+;; ((0 0) (1 1) (2 2) (3 3) (4 4))
+
+(sequence (or (build-massive-xform) xf/identity) (range 5) (range 5) (range 5))
+;; ((0 0 0) (1 1 1) (2 2 2) (3 3 3) (4 4 4))
+```
+
+`xf/identity` custom transducer compared to `(comp (map inc) identity)` has also positive effects on performances:
+
+```clojure
+(let [items (range 10000)
+      xform (comp (map list) identity)]
+  (quick-bench
+    (dorun
+      (sequence xform items items))))
+;; 4.09ms
+
+(let [items (range 10000)]
+  (quick-bench
+    (dorun
+      (sequence xf/identity items items))))
+;; 2.67ms
+```
 
 ## Development
 

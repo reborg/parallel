@@ -1,5 +1,9 @@
 ## Release History
 
+### 0.5 (WIP)
+
+* Added `xf/identity` transducer.
+
 ### 0.4
 
 * Added `p/armap`, parallel array reverse.

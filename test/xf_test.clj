@@ -36,3 +36,37 @@
                (xf/pmap #(* % %))
                (take 10))
              (range 1000))))))
+
+(deftest identity-test
+  (testing "single"
+    (is (= (range 10) (sequence xf/identity (range 10))))
+    (is (= (range 1 11) (sequence (comp (map inc) xf/identity) (range 10))))
+    (is (= (range 1 11) (sequence (comp xf/identity (map inc)) (range 10))))
+    (is (= [2 4 6 8 10] (sequence (comp (filter odd?) xf/identity (map inc)) (range 10)))))
+
+  (testing "multi"
+    (is (= (map vector (range 10) (range 10))
+           (sequence xf/identity (range 10) (range 10))))
+    (is (= (range 0 20 2)
+           (sequence
+             (comp (map #(+ %1 %2))
+                   xf/identity)
+             (range 10) (range 10))))
+    (is (= (range 0 20 2)
+           (sequence
+             (comp xf/identity
+                   (map #(apply + %)))
+             (range 10) (range 10))))
+    (is (= [1 1 2 2 3 3 4 4 5 5]
+           (sequence
+             (comp xf/identity
+                   cat
+                   (map inc))
+             (range 5) (range 5))))
+    (is (= (range 0 20 2)
+           (sequence
+             (comp (map vector)
+                   xf/identity
+                   (map #(apply + %)))
+             (range 10) (range 10))))
+    ))

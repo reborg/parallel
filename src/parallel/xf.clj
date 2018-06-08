@@ -1,5 +1,5 @@
 (ns parallel.xf
-  (:refer-clojure :exclude [interleave pmap]))
+  (:refer-clojure :exclude [interleave pmap identity]))
 
 (defn interleave
   "Transducer version of core/interleave."
@@ -32,3 +32,14 @@
         ([result] (rf result))
         ([result input] (rf result (clojure.core/pmap f input)))))
     cat))
+
+(def identity
+  "Identity transducer. When multiple inputs are present,
+  it wraps them in a list similarly to what (map list) transducer
+  would produce."
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([res] (rf res))
+      ([res in] (rf res in))
+      ([res in & ins] (rf res (list* in ins))))))
