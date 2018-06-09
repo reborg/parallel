@@ -552,7 +552,7 @@ The main transducing process runs until there are items in the filler sequence (
 ;; ((0 0 0) (1 1 1) (2 2 2) (3 3 3) (4 4 4))
 ```
 
-`xf/identity` custom transducer compared to `(comp (map inc) identity)` has also positive effects on performances:
+`xf/identity` custom transducer compared to `(comp (map list) identity)` has also positive effects on performances:
 
 ```clojure
 (let [items (range 10000)
