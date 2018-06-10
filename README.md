@@ -516,7 +516,17 @@ The main transducing process runs until there are items in the filler sequence (
 
 ### `xf/identity`
 
-`xf/identity` works similarly to `(map identity)` or just `identity` as identity transducer. An identity transducer should offer the option for a no-op placeholder for those cases in which a transformation is not requested, for example:
+`xf/identity` works similarly to `(map identity)` or just `identity` as identity transducer:
+
+[source,clojure]
+----
+(sequence (map identity) (range 10))
+(sequence clojure.core/identity (range 10))
+(sequence xf/identity (range 10))
+;; All printing (0 1 2 3 4 5 6 7 8 9)
+----
+
+The identity transducer works as a placeholder for those cases in which a transformation is not requested, for example:
 
 ```clojure
 (def config false)
@@ -529,17 +539,17 @@ The main transducing process runs until there are items in the filler sequence (
 ;; (0 1 2 3 4)
 ```
 
-`core/identity` works fine as a transducer in most cases, except when it comes to multiple inputs for which it requires a definition of what "identity" means. We can fix it with another transducer to transform the input back into a single item:
+`core/identity` works fine as a transducer in most cases, except when it comes to multiple inputs, for which it requires a definition of what "identity" means. We could for example agree that if you want to use `core/identity` with multiple inputs you need to use it in pair with another transducer, for example `(map list)`:
 
 ```clojure
 (sequence (or (build-massive-xform) identity) (range 5) (range 5))
-;; ArityException Wrong number of args (3)
+;; Throws exception
 
 (sequence (or (build-massive-xform) (comp (map list) identity)) (range 5) (range 5))
 ;; ((0 0) (1 1) (2 2) (3 3) (4 4))
 ```
 
-`xf/identity` is a lightweight transducer that takes care of primarily of this case, by assuming the convention that in case of multiple inputs the "identity" operation wraps around the passed arguments:
+`xf/identity` is a simple transducer that takes care of of this case, assuming "identity" means "wrap around" in case of multiple inputs:
 
 ```clojure
 (sequence (or (build-massive-xform) xf/identity) (range 5))
