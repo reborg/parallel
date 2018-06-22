@@ -1,5 +1,5 @@
 (ns parallel.core
-  (:refer-clojure :exclude [eduction sequence frequencies
+  (:refer-clojure :exclude [eduction sequence frequencies let
                             count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
@@ -7,7 +7,8 @@
             [parallel.fork-middle :as forkm]
             [clojure.core.reducers :as r]
             [clojure.core.protocols :as p]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.core :as c])
   (:import
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
@@ -51,7 +52,7 @@
   (iterate
     #(mapcat
        (fn [n] [(quot n 2) (- n (quot n 2))]) %)
-    [(clojure.core/count coll)]))
+    [(c/count coll)]))
 
 (defn show-chunks
   "Shows chunk sizes for the desired chunk number
@@ -59,7 +60,7 @@
   [coll nchunks]
   {:pre [(== (bit-and nchunks (- nchunks)) nchunks)]}
   (->> (splitting coll)
-       (take-while #(<= (clojure.core/count %) nchunks))
+       (take-while #(<= (c/count %) nchunks))
        last))
 
 (defn chunk-size
@@ -73,16 +74,16 @@
   "A general purpose reducers/foldvec taking a generic f
   to apply at the leaf instead of reduce."
   [v n combinef f]
-  (let [cnt (clojure.core/count v)]
+  (c/let [cnt (c/count v)]
     (cond
       (empty? v) (combinef)
       (<= cnt n) (f v)
-      :else (let [half (quot cnt 2)
+      :else (c/let [half (quot cnt 2)
                   r1 (subvec v 0 half)
                   r2 (subvec v half cnt)
                   fc (fn [v] #(foldvec v n combinef f))]
               (#'r/fjinvoke
-                #(let [f1 (fc r1)
+                #(c/let [f1 (fc r1)
                        t2 (#'r/fjtask (fc r2))]
                    (#'r/fjfork t2)
                    (combinef (f1) (#'r/fjjoin t2))))))))
@@ -139,7 +140,7 @@
   ([xform coll]
    (count 32 xform coll))
   ([n xform coll]
-   (let [coll (if (foldable? coll) coll (into [] coll))
+   (c/let [coll (if (foldable? coll) coll (into [] coll))
          cnt (AtomicLong. 0)
          reducef (xrf (fn [_ _] (.incrementAndGet cnt)) xform)
          combinef (constantly cnt)]
@@ -150,10 +151,10 @@
   java.util.Map
   (kv-reduce
     [amap f init]
-    (let [^java.util.Iterator iter (.. amap entrySet iterator)]
+    (c/let [^java.util.Iterator iter (.. amap entrySet iterator)]
       (loop [ret init]
         (if (.hasNext iter)
-          (let [^java.util.Map$Entry kv (.next iter)
+          (c/let [^java.util.Map$Entry kv (.next iter)
                 ret (f ret (.getKey kv) (.getValue kv))]
             (if (reduced? ret)
               @ret
@@ -172,11 +173,11 @@
         (binding [p/*mutable* true] (p/group-by f coll))
   Restrictions: it does not support nil values."
   [f coll & xforms]
-  (let [coll (if (foldable? coll) coll (into [] coll))
-        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+  (c/let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([m1 m2]))
         rf (fn [^Map m x]
-             (let [k (f x)
+             (c/let [k (f x)
                    ^Queue a (or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
                (when a (.add a x))
                m))]
@@ -188,11 +189,11 @@
   It takes an optional list of transducers to apply to coll before
   the frequency is calculated. It does not support nil values."
   [coll & xforms]
-  (let [coll (if (foldable? coll) coll (into [] coll))
-        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+  (c/let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([_ _]))
         rf (fn [^Map m k]
-             (let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+             (c/let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                (when v (.incrementAndGet v))
                m))]
     (fold combinef (apply xrf rf xforms) coll)
@@ -206,8 +207,8 @@
   You can access the raw mutable java.util.Map by setting the dynamic
   binding *mutable* to true. Restrictions: does not support nil values."
   [^Map input f]
-  (let [ks (into [] (keys input))
-        output (ConcurrentHashMap. (clojure.core/count ks) 1. ncpu)]
+  (c/let [ks (into [] (keys input))
+        output (ConcurrentHashMap. (c/count ks) 1. ncpu)]
     (r/fold
       (fn ([] output) ([_ _]))
       (fn [^Map m k]
@@ -224,7 +225,7 @@
   ([cmp colls]
    (lazy-seq
      (if (some identity (map first colls))
-       (let [[[winner & losers] & others] (sort-by first cmp colls)]
+       (c/let [[[winner & losers] & others] (sort-by first cmp colls)]
          (cons winner (lazy-sort cmp (if losers (conj others losers) others))))))))
 
 (defn sort
@@ -238,7 +239,7 @@
   ([cmp coll]
    (sort 8192 cmp coll))
   ([threshold cmp ^Object coll]
-   (let [a (if (.. coll getClass isArray) coll (to-array coll))]
+   (c/let [a (if (.. coll getClass isArray) coll (to-array coll))]
      (msort/sort threshold cmp a)
      (if *mutable* a (into [] a)))))
 
@@ -248,7 +249,7 @@
   IDs are split into chunks which are processed in parallel using reducers.
   'fetchf' is used on each ID to retrieve the relevant data.
   The chunk is sorted using 'cmp' ('compare' by default) and saved to disk
-  to a temporary file that is deleted when the JVM exits.
+  to a temporary file that is dec/leted when the JVM exits.
   The list of file handles is then used to merge the pre-sorted chunks lazily
   while maintaining order."
   ([fetchf ids]
@@ -256,9 +257,9 @@
   ([cmp fetchf ids]
    (external-sort 512 compare fetchf ids))
   ([n cmp fetchf ids]
-   (letfn [(load-chunk [fname] (read-string (slurp fname)))
+   (c/letfn [(load-chunk [fname] (read-string (slurp fname)))
            (save-chunk! [data]
-             (let [file (File/createTempFile "mergesort-" ".tmp")]
+             (c/let [file (File/createTempFile "mergesort-" ".tmp")]
                (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
      (->>
        (r/fold n concat
@@ -271,12 +272,12 @@
 
 (defn min
   ([v]
-   (let [pivot (peek v)]
+   (c/let [pivot (peek v)]
      (r/fold
        (fn ([] pivot) ([a b] (clojure.core/min a b)))
        clojure.core/min v)))
   ([v & xforms]
-   (let [pivot (peek v)]
+   (c/let [pivot (peek v)]
      (fold
        (fn ([] pivot) ([a b] (clojure.core/min a b)))
        (apply xrf clojure.core/min xforms)
@@ -284,12 +285,12 @@
 
 (defn max
   ([v]
-   (let [pivot (peek v)]
+   (c/let [pivot (peek v)]
      (r/fold
        (fn ([] pivot) ([a b] (clojure.core/max a b)))
        clojure.core/max v)))
   ([v & xforms]
-   (let [pivot (peek v)]
+   (c/let [pivot (peek v)]
      (fold
        (fn ([] pivot) ([a b] (clojure.core/max a b)))
        (apply xrf clojure.core/max xforms)
@@ -319,8 +320,8 @@
   Also accepts an optional list of transducers that is applied before removing
   duplicates. When bound with *mutable* dynamic var, returns a java.util.Set."
   [coll & xforms]
-  (let [coll (if (foldable? coll) coll (into [] coll))
-        m (ConcurrentHashMap. (quot (clojure.core/count coll) 2) 0.75 ncpu)
+  (c/let [coll (if (foldable? coll) coll (into [] coll))
+        m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([_ _]))
         rf (fn [^Map m k] (.put m k 1) m)]
     (fold combinef (apply xrf rf xforms) coll)
@@ -334,7 +335,7 @@
   [f low high radius ^objects a]
   (loop [left low right high]
     (when (and (<= left right) (< left (+ low radius)))
-      (let [tmp (f (aget a left))]
+      (c/let [tmp (f (aget a left))]
         (aset a left (f (aget a right)))
         (aset a right tmp)
         (recur (inc left) (dec right))))) a)
@@ -344,7 +345,7 @@
   [f ^objects a]
   (loop [i 0]
     (when (< i (quot (alength a) 2))
-      (let [tmp (f (aget a i))
+      (c/let [tmp (f (aget a i))
             j (- (alength a) i 1)]
         (aset a i (f (aget a j)))
         (aset a j tmp))
@@ -364,3 +365,18 @@
        (forkm/submit f arswap threshold a)
        (sequential-armap f a))) a))
 
+(defn- should-be [p msg form]
+  (when-not p
+    (c/let [line (:line (meta form))
+          msg (format "%s requires %s in %s:%s" (first form) msg *ns* line)]
+      (throw (IllegalArgumentException. msg)))))
+
+(defmacro let [bindings & body]
+  (should-be (vector? bindings) "a vector for its bindings" &form)
+  (should-be (even? (c/count bindings)) "an even number of forms in bindings" &form)
+  (c/let [ks (take-nth 2 bindings)
+          vs (take-nth 2 (rest bindings))
+          ts (take (c/count ks) (repeatedly gensym))]
+    `(c/let ~(vec (interleave ts (map #(list 'future %) vs)))
+       (c/let ~(vec (interleave ks (map #(list 'deref %) ts)))
+         ~@body))))

@@ -1,8 +1,11 @@
 ## Release History
 
-### 0.5 (WIP)
+### 0.6 (wip)
+
+### 0.5
 
 * Added `xf/identity` transducer.
+* Added `p/let` parallel let bindings.
 
 ### 0.4
 

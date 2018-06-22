@@ -8,6 +8,7 @@ Current:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
+| [`p/let`](#plet)                        | Parallel `let` bindings.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
@@ -37,13 +38,14 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.4"]
+[parallel "0.5"]
 ```
 
 Require at the REPL with:
 
 ```clojure
-(require '[parallel.core :as p] [parallel.xf :as xf])
+(require '[parallel.core :as p]
+         '[parallel.xf :as xf])
 ```
 
 Or in your namespace as:
@@ -54,7 +56,25 @@ Or in your namespace as:
             [parallel.xf :as xf]))
 ```
 
-## API
+## API Docs
+
+### `p/let`
+
+`p/let` works like `clojure.core/let` but evaluates its binding expressions in parallel:
+
+```clj
+(time
+  (p/let [a (Thread/sleep 1000)
+          b (Thread/sleep 1000)
+          c (Thread/sleep 1000)]
+    (= a b c)))
+;; "Elapsed time: 1002.519823 msecs"
+```
+
+Don't use `p/let` if:
+
+* The expressions have dependencies. `p/let` cannot resolve cross references between expressions and will throw exception.
+* The expressions are trivial. In this case the thread orchestration outweighs the benefits of executing in parallel. Good expressions to parallelize are for example independent networked API calls, file system calls or other non trivial computations.
 
 ### `p/count`
 
