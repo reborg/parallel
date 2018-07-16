@@ -577,13 +577,13 @@ The main transducing process runs until there are items in the filler sequence (
 
 `xf/identity` works similarly to `(map identity)` or just `identity` as identity transducer:
 
-[source,clojure]
-----
+
+```clojure
 (sequence (map identity) (range 10))
 (sequence clojure.core/identity (range 10))
 (sequence xf/identity (range 10))
 ;; All printing (0 1 2 3 4 5 6 7 8 9)
-----
+```
 
 The identity transducer works as a placeholder for those cases in which a transformation is not requested, for example:
 
