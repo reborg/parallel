@@ -243,6 +243,29 @@
      (msort/sort threshold cmp a)
      (if *mutable* a (into [] a)))))
 
+(defn slurp
+  "Loads a java.io.File in parallel. By default,
+  the loaded byte array is converted into an UTF-8 string.
+  It takes an optional parsef function of the byte array for
+  additional (or different) processing. When *mutable* var
+  is true it returns the byte array as is."
+  ([file]
+   (slurp file (fn parsef [^bytes a] (String. a "UTF-8"))))
+  ([^File file parsef]
+   (c/let [size (.length file)
+           threshold (quot size (* 4 ncpu))
+           a (byte-array size)]
+     (mcombine/map
+       (fn read-chunk [low high]
+         (c/let [fis (FileInputStream. file)]
+           (try
+             (.skip fis low)
+             (.read fis a low (- high low))
+             (finally (.close fis)))))
+       (fn [_ _])
+       threshold size)
+     (if *mutable* a (parsef a)))))
+
 (defn external-sort
   "Allows large datasets (that would otherwise not fit into memory)
   to be sorted in parallel. Data to fetch is identified by a vector of IDs.
@@ -257,7 +280,7 @@
   ([cmp fetchf ids]
    (external-sort 512 compare fetchf ids))
   ([n cmp fetchf ids]
-   (letfn [(load-chunk [fname] (read-string (clojure.core/slurp fname)))
+   (letfn [(load-chunk [fname] (read-string (slurp fname)))
            (save-chunk! [data]
              (c/let [file (File/createTempFile "mergesort-" ".tmp")]
                (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
@@ -364,30 +387,6 @@
      (if (pos? threshold)
        (forkm/submit f arswap threshold a)
        (sequential-armap f a))) a))
-
-(defn slurp
-  "Like standard slurp, but loads the file in parallel. By
-  default, the loaded byte array is converted into an UTF-8 string.
-  It takes an optional parsef function of the byte array for
-  additional (or different) processing.
-  When *mutable* dynamic var is true it returns the byte array as is."
-  ([fname]
-   (slurp fname (fn parsef [^bytes a] (String. a "UTF-8"))))
-  ([^String fname parsef]
-   (c/let [file (File. fname)
-           size (.length file)
-           threshold (quot size (* 4 ncpu))
-           a (byte-array size)]
-     (mcombine/map
-       (fn read-chunk [low high]
-         (c/let [fis (FileInputStream. file)]
-           (try
-             (.skip fis low)
-             (.read fis a low (- high low))
-             (finally (.close fis)))))
-       (fn [_ _])
-       threshold size)
-     (if *mutable* a (parsef a)))))
 
 (defn- should-be [p msg form]
   (when-not p

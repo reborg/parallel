@@ -1,5 +1,5 @@
 (ns parallel-test
-  (:import [clojure.lang RT])
+  (:import [clojure.lang RT] [java.io File])
   (:require [parallel.core :as p]
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
@@ -181,7 +181,7 @@
 
 (deftest slurping
   (testing "slurping sanity"
-    (is (= (slurp "test/words") (p/slurp "test/words")))))
+    (is (= (slurp "test/words") (p/slurp (File. "test/words"))))))
 
 (deftest parallel-let
   (testing "it works like normal let"

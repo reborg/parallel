@@ -2,6 +2,8 @@
 
 ### 0.6 (wip)
 
+* Added `p/slurp`
+
 ### 0.5
 
 * Added `xf/identity` transducer.

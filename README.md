@@ -37,7 +37,7 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.5"]
+[parallel "0.6"]
 ```
 
 Require at the REPL with:
@@ -492,18 +492,42 @@ You can optionally pass in a "threshold" which indicates how small the chunk of 
 
 ### `p/slurp`
 
-`p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local file paths (no URLs or other input streams):
+`p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local files (no URLs or other input streams):
 
 ```clojure
-(take 10 (.split (p/slurp "test/words") "\n"))
+(import 'java.io.File)
+(take 10 (.split (p/slurp (File. "test/words")) "\n"))
 ;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
 ```
 
-In addition `p/slurp` offers a way to interpret the loaded bytes differently from a string:
+`p/slurp` offers a way to interpret the loaded byte array differently from a string, for example to load an entry from a zipped file:
 
 ```clojure
-(take 10 (.split (p/slurp "test/words") "\n"))
-;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
+(import '[java.io File ByteArrayInputStream]
+        '[java.util.zip ZipFile ZipInputStream])
+
+(defn filenames-in-zip [bytes]
+  (let [z (ZipInputStream. (ByteArrayInputStream. bytes))]
+    (.getName (.getNextEntry z))))
+
+(p/slurp (File. "target/parallel-0.5.jar") filenames-in-zip)
+;; "META-INF/MANIFEST.MF"
+```
+
+When `*mutable*` is set to `true` the transformation step is skipped altogether and the raw byte array is returned:
+
+```clojure
+(import 'java.io.File)
+(binding [p/*mutable* true] (p/slurp (File. "test/words")))
+;; #object["[B" 0x705709a4 "[B@705709a4"]
+```
+
+`p/slurp` performs better than `core/slurp` on large files (> 500K). Here's for example a comparison benchmark to load a 2.4MB file:
+
+```clojure
+(import 'java.io.File)
+(let [fname "test/words" file (File. fname)] (bench (slurp file))) ; 8.84ms
+(let [fname "test/words" file (File. fname)] (bench (p/slurp file))) ; 2.87ms
 ```
 
 ### `xf/interleave`
