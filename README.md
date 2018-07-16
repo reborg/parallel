@@ -9,7 +9,7 @@ Current:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/let`](#plet)                        | Parallel `let` bindings.
-| [`p/slurp`](#pslurp)                    | Parallel slurping files as strings.
+| [`p/slurp`](#pslurp)                    | Parallel slurping files.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
