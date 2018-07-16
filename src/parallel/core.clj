@@ -374,13 +374,13 @@
   ([fname]
    (slurp fname (fn parsef [^bytes a] (String. a "UTF-8"))))
   ([^String fname parsef]
-   (let [file (File. fname)
-         size (.length file)
-         threshold (quot size (* 4 ncpu))
-         a (byte-array size)]
+   (c/let [file (File. fname)
+           size (.length file)
+           threshold (quot size (* 4 ncpu))
+           a (byte-array size)]
      (mcombine/map
        (fn read-chunk [low high]
-         (let [fis (FileInputStream. file)]
+         (c/let [fis (FileInputStream. file)]
            (try
              (.skip fis low)
              (.read fis a low (- high low))

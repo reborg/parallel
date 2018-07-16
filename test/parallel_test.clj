@@ -188,5 +188,4 @@
     (is (= 3 (p/let [a 1 b 2] (+ a b))))
     (is (= 3 (p/let [a (future 1) b (future 2)] (+ @a @b))))
     (is (= 6 (p/let [[a b] [1 2] {c :c} {:c 3}] (+ a b c))))
-    (is (p/let [a (do (Thread/sleep 200) 100) b (do (Thread/sleep 100) (+ a 10))] (+ a b)))
-    ))
+    (is (p/let [a (do (Thread/sleep 200) 100) b (do (Thread/sleep 100) 200)] (+ a b)))))
