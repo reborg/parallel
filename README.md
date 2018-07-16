@@ -8,124 +8,72 @@ Current:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
-| [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
+| [`p/let`](#plet)                        | Parallel `let` bindings.
+| [`p/slurp`](#pslurp)                    | Parallel slurping files as strings.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
 | [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
+| [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
-| [`p/slurp`](#pslurp)                    | Parallel slurping files as strings or other objects.
-| [`p/interleave`](#pinterleave)          | Transducer-enabled `core/interleave`
+| [`xf/interleave`](#xfinterleave)        | Like `core/interleave`, transducer version.
+| [`xf/pmap`](#xfpmap)                    | Like `core/pmap`, transducer version.
+| [`xf/identity`](#xfidentity)            | Alternative identity transducer to `core/identity`
 
 In the pipeline:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | `p/split-by`                            | Splitting transducer based on contiguous elements.
-| `p/let`                                 | Parallel local binding
 | `p/or` `p/and`                          | Conditions in parallel
 
 ### How to use the library
 
-All functions are available through the `parallel.core` namespace.  Add the following to your project dependencies:
+All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.3"]
+[parallel "0.5"]
 ```
 
 Require at the REPL with:
 
 ```clojure
-(require '[parallel.core :as p])
+(require '[parallel.core :as p]
+         '[parallel.xf :as xf])
 ```
 
 Or in your namespace as:
 
 ```clojure
 (ns mynamespace
-  (:require [parallel.core :as p]))
+  (:require [parallel.core :as p]
+            [parallel.xf :as xf]))
 ```
 
-## API
+## API Docs
 
-### `p/fold`, `p/xrf` and `p/folder`
+### `p/let`
 
-`p/fold` is modeled similar to `clojure.core.reducers/fold` function, the entry point into the Clojure reduce-combine (Java fork-join) parallel computation framework. It can be used with transducers like you would with normal `r/fold`:
+`p/let` works like `clojure.core/let` but evaluates its binding expressions in parallel:
 
-```clojure
-(def v (vec (range 1000)))
-(p/fold + ((comp (map inc) (filter odd?)) +) v)
-;; 250000
+```clj
+(time
+  (p/let [a (Thread/sleep 1000)
+          b (Thread/sleep 1000)
+          c (Thread/sleep 1000)]
+    (= a b c)))
+;; "Elapsed time: 1002.519823 msecs"
 ```
 
-And exactly like with normal `r/fold` this would give you inconsistent results when a stateful transducer like `(drop 1)` is introduced:
+Don't use `p/let` if:
 
-```clojure
-(distinct (for [i (range 1000)]
-  (p/fold + ((comp (map inc) (drop 1) (filter odd?)) +) v)))
-;; (249999 249498 249499)
-```
-
-This is what `p/xrf` is designed for. `p/xrf` is a wrapping utility that hides the way the transducers are combined with the reducing function. More importantly, it takes care of the potential presence of stateful transducers in the chain (like `drop`, `take`, `partition` and so on).
-
-```clojure
-(distinct (for [i (range 1000)]
-  (p/fold (p/xrf + (map inc) (drop 1) (filter odd?)) v)))
-;; (242240)
-```
-
-`p/xrf` makes sure that stateful transducer state is allocated at each chunk instead of each thread (the "chunk" is the portion of the initial collection that is not subject to any further splitting). This is a drastic departure from the semantic of the same transducers when used sequentially on the whole input. The first practical implication is that operations like `take`, `drop`, `partition` etc. are isolated in their own chunk and don't see each other state (for example, `(drop 1)` would remove the first element from each chunk, not just the first element from the whole input). The second consequence is that the result is now dependent (consistently) on the number of chunks.
-
-To enable easier design of parallel algorithms, you can pass `p/fold` a number "n" of desired chunks for the parallel computation (n has to be a power of 2 and it defaults to 32 by default). **Note the difference: with `(r/fold)` the computation is chunk-size driven by "n", the desired chunk size (default to 512). With `(p/fold)` the computation is chunk-number driven by "n" the number of desired chunks to compute in parallel**:
-
-```clojure
-(p/fold 4 + (p/xrf + (map inc) (drop 1) (filter odd?)) v)
-;; 248496
-```
-
-Assuming there are 4 cores available, the example above executes on 4 parallel threads. Let's dissect it chunk by chunk:
-
-* We are asking `(p/fold)` to create 4 chunks of the initial vector "v" of 1000 elements. Each chunk ends up having 250 items.
-* The content of each chunk can be expressed by the following ranges (the actual type is a subvec not a range but the content it the same): `(range 0 250)`, `(range 250 500)`, `(range 500 750)`, `(range 750 1000)`
-* Transducers transform each chunk (composition reads backward like normal transducers): `(filter odd? (drop 1 (map inc (range 0 250))))`, `(filter odd? (drop 1 (map inc (range 250 500))))`, `(filter odd? (drop 1 (map inc (range 500 750))))`, `(filter odd? (drop 1 (map inc (range 750 1000))))`
-* The reducing function "+" is applied on the items on each chunk: 15624, 46624, 77624, 108624
-* The combining function is again "+", resulting in the final sums: (+ (+ 15624 46624) (+ 77624 108624)) which is 248496.
-
-It can be tricky for arbitrary collection sizes to see what is the best strategy in terms of chunk size or number. The utility function `p/show-chunks` can be used to predict the splitting for a parallel calculation. `p/fold` parameters can be adjusted accordingly. Here's what happens if you have a vector of 9629 items and you'd like 8 chunks to be created. Some of them will be bigger, other will be smaller:
-
-```clojure
-(p/show-chunks (vec (range 9629)) 8)
-;; (1203 1204 1203 1204 1203 1204 1204 1204)
-```
-
-`p/fold` also allows transducers on hash-maps, not just vectors. A hash-map can be folded with transducers (in parallel) like this:
-
-```clojure
-(require '[clojure.core.reducers :refer [monoid]])
-(def input (zipmap (range 10000) (range 10000)))
-
-(def output
- (p/fold
-  (monoid merge (constantly {}))
-  (p/xrf conj
-    (filter (fn [[k v]] (even? k)))
-    (map (fn [[k v]] [k (inc v)]))
-    (map (fn [[k v]] [(str k) v])))
-  input))
-(output "664")
-;; 665
-```
-
-The single argument for transducers is a vector pair containing a key and a value. In this case each transducer returns another pair to build another map (but that's not required).
-
-Caveats and known problems:
-
-* Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
+* The expressions have dependencies. `p/let` cannot resolve cross references between expressions and will throw exception.
+* The expressions are trivial. In this case the thread orchestration outweighs the benefits of executing in parallel. Good expressions to parallelize are for example independent networked API calls, file system calls or other non trivial computations.
 
 ### `p/count`
 
@@ -352,6 +300,80 @@ Once all chunk are retrieved, sorted and stored on disk, the result is made avai
 
 The degree of parallelism with which "fetchf" is invoked is equal to the number of cores (physical or virtual) available on the running system. If the collection of IDs is a not a vector, it will be converted into one.
 
+### `p/fold`, `p/xrf` and `p/folder`
+
+`p/fold` is modeled similar to `clojure.core.reducers/fold` function, the entry point into the Clojure reduce-combine (Java fork-join) parallel computation framework. It can be used with transducers like you would with normal `r/fold`:
+
+```clojure
+(def v (vec (range 1000)))
+(p/fold + ((comp (map inc) (filter odd?)) +) v)
+;; 250000
+```
+
+And exactly like with normal `r/fold` this would give you inconsistent results when a stateful transducer like `(drop 1)` is introduced:
+
+```clojure
+(distinct (for [i (range 1000)]
+  (p/fold + ((comp (map inc) (drop 1) (filter odd?)) +) v)))
+;; (249999 249498 249499)
+```
+
+This is what `p/xrf` is designed for. `p/xrf` is a wrapping utility that hides the way the transducers are combined with the reducing function. More importantly, it takes care of the potential presence of stateful transducers in the chain (like `drop`, `take`, `partition` and so on).
+
+```clojure
+(distinct (for [i (range 1000)]
+  (p/fold (p/xrf + (map inc) (drop 1) (filter odd?)) v)))
+;; (242240)
+```
+
+`p/xrf` makes sure that stateful transducer state is allocated at each chunk instead of each thread (the "chunk" is the portion of the initial collection that is not subject to any further splitting). This is a drastic departure from the semantic of the same transducers when used sequentially on the whole input. The first practical implication is that operations like `take`, `drop`, `partition` etc. are isolated in their own chunk and don't see each other state (for example, `(drop 1)` would remove the first element from each chunk, not just the first element from the whole input). The second consequence is that the result is now dependent (consistently) on the number of chunks.
+
+To enable easier design of parallel algorithms, you can pass `p/fold` a number "n" of desired chunks for the parallel computation (n has to be a power of 2 and it defaults to 32 by default). **Note the difference: with `(r/fold)` the computation is chunk-size driven by "n", the desired chunk size (default to 512). With `(p/fold)` the computation is chunk-number driven by "n" the number of desired chunks to compute in parallel**:
+
+```clojure
+(p/fold 4 + (p/xrf + (map inc) (drop 1) (filter odd?)) v)
+;; 248496
+```
+
+Assuming there are 4 cores available, the example above executes on 4 parallel threads. Let's dissect it chunk by chunk:
+
+* We are asking `(p/fold)` to create 4 chunks of the initial vector "v" of 1000 elements. Each chunk ends up having 250 items.
+* The content of each chunk can be expressed by the following ranges (the actual type is a subvec not a range but the content it the same): `(range 0 250)`, `(range 250 500)`, `(range 500 750)`, `(range 750 1000)`
+* Transducers transform each chunk (composition reads backward like normal transducers): `(filter odd? (drop 1 (map inc (range 0 250))))`, `(filter odd? (drop 1 (map inc (range 250 500))))`, `(filter odd? (drop 1 (map inc (range 500 750))))`, `(filter odd? (drop 1 (map inc (range 750 1000))))`
+* The reducing function "+" is applied on the items on each chunk: 15624, 46624, 77624, 108624
+* The combining function is again "+", resulting in the final sums: (+ (+ 15624 46624) (+ 77624 108624)) which is 248496.
+
+It can be tricky for arbitrary collection sizes to see what is the best strategy in terms of chunk size or number. The utility function `p/show-chunks` can be used to predict the splitting for a parallel calculation. `p/fold` parameters can be adjusted accordingly. Here's what happens if you have a vector of 9629 items and you'd like 8 chunks to be created. Some of them will be bigger, other will be smaller:
+
+```clojure
+(p/show-chunks (vec (range 9629)) 8)
+;; (1203 1204 1203 1204 1203 1204 1204 1204)
+```
+
+`p/fold` also allows transducers on hash-maps, not just vectors. A hash-map can be folded with transducers (in parallel) like this:
+
+```clojure
+(require '[clojure.core.reducers :refer [monoid]])
+(def input (zipmap (range 10000) (range 10000)))
+
+(def output
+ (p/fold
+  (monoid merge (constantly {}))
+  (p/xrf conj
+    (filter (fn [[k v]] (even? k)))
+    (map (fn [[k v]] [k (inc v)]))
+    (map (fn [[k v]] [(str k) v])))
+  input))
+(output "664")
+;; 665
+```
+
+The single argument for transducers is a vector pair containing a key and a value. In this case each transducer returns another pair to build another map (but that's not required).
+
+Caveats and known problems:
+
+* Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
+
 ### `p/min` and `p/max`
 
 `p/min` and `p/max` are analogous to the corresponding `core/min` and `core/max` functions, but they operate in parallel. They assume a vector of numbers as input (a lazy-sequence would have to be completely scanned anyway) and they allow any combination of transducers (stateless or stateful) to be passed in:
@@ -484,9 +506,113 @@ In addition `p/slurp` offers a way to interpret the loaded bytes differently fro
 ;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
 ```
 
-### `p/interleave`
+### `xf/interleave`
 
-Like `clojure.core/interleave` in transducer version. Docs wip.
+Like `clojure.core/interleave` but in transducer version. When `xf/interleave` is instantiated, it takes a "filler" collection. The items from the collection are used to interleave the others items coming from the main transducing sequence:
+
+```clojure
+(sequence
+  (comp
+    (map inc)
+    (xf/interleave [100 101 102 103 104 105])
+    (filter odd?)
+    (map str))
+  [3 6 9 12 15 18 21 24 37 30])
+;; ("7" "101" "13" "103" "19" "105")
+```
+
+The main transducing process runs until there are items in the filler sequence (those starting at 100 in the example). You can provide an infinite sequence to be sure all results are interleaved:
+
+```clojure
+(sequence
+  (comp
+    (map inc)
+    (xf/interleave (range))
+    (filter odd?)
+    (map str))
+  [3 6 9 12 15 18 21 24 37 30])
+;; ("7" "1" "13" "3" "19" "5" "25" "7" "31" "9")
+```
+
+### `xf/pmap`
+
+`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like `core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `core/map`, `xf/pmap` processes items in parallel up to 32 simultaneously (with physical parallelism equal to the number of available cores):
+
+```clojure
+(defn heavyf [x] (Thread/sleep 1000) (inc x))
+
+(time (transduce (comp (map heavyf) (filter odd?)) + (range 10)))
+;; 10025ms
+(time (transduce (comp (xf/pmap heavyf) (filter odd?)) + (range 10)))
+;; 1006ms
+```
+
+`xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and performance of "f" applied to the input are uniform. If one `(f item)` takes much more than the others, the current 32-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources.
+
+### `xf/identity`
+
+`xf/identity` works similarly to `(map identity)` or just `identity` as identity transducer:
+
+[source,clojure]
+----
+(sequence (map identity) (range 10))
+(sequence clojure.core/identity (range 10))
+(sequence xf/identity (range 10))
+;; All printing (0 1 2 3 4 5 6 7 8 9)
+----
+
+The identity transducer works as a placeholder for those cases in which a transformation is not requested, for example:
+
+```clojure
+(def config false)
+
+(defn build-massive-xform []
+  (when config
+    (comp (map inc) (filter odd?))))
+
+(sequence (or (build-massive-xform) identity) (range 5))
+;; (0 1 2 3 4)
+```
+
+`core/identity` works fine as a transducer in most cases, except when it comes to multiple inputs, for which it requires a definition of what "identity" means. We could for example agree that if you want to use `core/identity` with multiple inputs you need to use it in pair with another transducer, for example `(map list)`:
+
+```clojure
+(sequence (or (build-massive-xform) identity) (range 5) (range 5))
+;; Throws exception
+
+(sequence (or (build-massive-xform) (comp (map list) identity)) (range 5) (range 5))
+;; ((0 0) (1 1) (2 2) (3 3) (4 4))
+```
+
+`xf/identity` is a simple transducer that takes care of of this case, assuming "identity" means "wrap around" in case of multiple inputs:
+
+```clojure
+(sequence (or (build-massive-xform) xf/identity) (range 5))
+;; (0 1 2 3 4)
+
+(sequence (or (build-massive-xform) xf/identity) (range 5) (range 5))
+;; ((0 0) (1 1) (2 2) (3 3) (4 4))
+
+(sequence (or (build-massive-xform) xf/identity) (range 5) (range 5) (range 5))
+;; ((0 0 0) (1 1 1) (2 2 2) (3 3 3) (4 4 4))
+```
+
+`xf/identity` custom transducer compared to `(comp (map list) identity)` has also positive effects on performances:
+
+```clojure
+(let [items (range 10000)
+      xform (comp (map list) identity)]
+  (quick-bench
+    (dorun
+      (sequence xform items items))))
+;; 4.09ms
+
+(let [items (range 10000)]
+  (quick-bench
+    (dorun
+      (sequence xf/identity items items))))
+;; 2.67ms
+```
 
 ## Development
 

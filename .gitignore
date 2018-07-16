@@ -16,3 +16,4 @@ appcds.classlist
 .java-version
 .idea
 *.iml
+.DS_Store

@@ -1,8 +1,16 @@
 ## Release History
 
+### 0.6 (wip)
+
+### 0.5
+
+* Added `xf/identity` transducer.
+* Added `p/let` parallel let bindings.
+
 ### 0.4
 
-* Added `p/armap`
+* Added `p/armap`, parallel array reverse.
+* Added `xf/pmap`, transducer version of `core/pmap`.
 
 ### 0.3
 

@@ -4,20 +4,6 @@
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
 
-(deftest interleave-test
-  (testing "interleave with sequence"
-    (is (= [0 :a 1 :b 2 :c] (sequence (p/interleave [:a :b :c]) (range 3))))
-    (are [x y] (= x y)
-         (sequence (p/interleave [1 2]) [3 4]) (interleave [3 4] [1 2])
-         (sequence (p/interleave [1]) [3 4]) (interleave [3 4] [1])
-         (sequence (p/interleave [1 2]) [3]) (interleave [3] [1 2])
-         (sequence (p/interleave []) [3 4]) (interleave [3 4] [])
-         (sequence (p/interleave [1 2]) []) (interleave [] [1 2])
-         (sequence (p/interleave []) []) (interleave [] [])))
-  (testing "interleave with eduction"
-    (is (= [1 0 2 1 3 2 4 3 5 4 6 5 7 6 8 7 9 8 10 9]
-           (eduction (map inc) (p/interleave (range)) (filter number?) (range 10))))))
-
 (deftest frequencies-test
   (testing "frequencies with xform"
     (is (= 5000 (count (p/frequencies (range 1e4) (filter odd?)))))
@@ -196,3 +182,11 @@
 (deftest slurping
   (testing "slurping sanity"
     (is (= (slurp "test/words") (p/slurp "test/words")))))
+
+(deftest parallel-let
+  (testing "it works like normal let"
+    (is (= 3 (p/let [a 1 b 2] (+ a b))))
+    (is (= 3 (p/let [a (future 1) b (future 2)] (+ @a @b))))
+    (is (= 6 (p/let [[a b] [1 2] {c :c} {:c 3}] (+ a b c))))
+    (is (p/let [a (do (Thread/sleep 200) 100) b (do (Thread/sleep 100) (+ a 10))] (+ a b)))
+    ))
