@@ -383,7 +383,11 @@
        (sequential-armap f a))) a))
 
 (defn slurp
-  ;; https://github.com/clojure/clojure-contrib/blob/master/modules/mmap/src/main/clojure/clojure/contrib/mmap.clj
+  "Like standard slurp, but loads the file in parallel. By
+  default, the loaded byte array is converted into an UTF-8 string.
+  It takes an optional parsef function of the byte array for
+  additional (or different) processing.
+  When *mutable* dynamic var is true it returns the byte array as is."
   ([fname]
    (slurp fname (fn parsef [^bytes a] (String. a "UTF-8"))))
   ([^String fname parsef]
