@@ -3,6 +3,7 @@
 ### 0.6 (wip)
 
 * Added `p/slurp`
+* Consolidated and documented `p/min` and `p/max`
 
 ### 0.5
 

@@ -136,7 +136,10 @@
       (is (= 99999 (p/max c)))))
   (testing "xducers"
     (let [c (into [] (shuffle (conj (range 100000) -3)))]
-      (is (= 99998 (p/max c (map dec)))))))
+      (is (= 99998 (p/max c (map dec))))))
+  (testing "min-index"
+    (let [c (conj (range 100000) -3)]
+      (is (= 99999 (p/max c))))))
 
 (deftest pamap-test
   (testing "sanity"

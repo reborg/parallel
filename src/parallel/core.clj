@@ -68,7 +68,7 @@
   the given number of splits during a parallel fold.
   nchunks needs to be a power of two."
   [coll nchunks]
-  (apply clojure.core/max (show-chunks coll nchunks)))
+  (apply c/max (show-chunks coll nchunks)))
 
 (defn foldvec
   "A general purpose reducers/foldvec taking a generic f
@@ -230,7 +230,7 @@
 
 (defn sort
   "Splits input coll into chunk of 'threshold' (default 8192)
-  size then sorts chunks in parallel. Input needs converstion into a native
+  size then sorts chunks in parallel. Input needs conversion into a native
   array before splitting. More effective for large colls
   (> 1M elements) or non trivial comparators. Set *mutable* to 'true'
   to access the raw results as a mutable array."
@@ -286,38 +286,43 @@
                (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
      (->>
        (r/fold n concat
-         (fn [chunk] (->> chunk (map fetchf) (clojure.core/sort cmp) save-chunk! vector))
+         (fn [chunk] (->> chunk (map fetchf) (c/sort cmp) save-chunk! vector))
          (reify r/CollFold
            (coll-fold [this n combinef f]
              (foldvec (into [] ids) n combinef f))))
        (map load-chunk)
        (lazy-sort cmp)))))
 
+(defn- nearest-pow2 [x]
+  (int (Math/pow 2 (- 32 (Integer/numberOfLeadingZeros x)))))
+
+(defn- fold-adapt
+  "Select r/fold or p/fold based on presence of xforms.
+  Adapt p/fold chunk number to the requested chunk-size."
+  [rf init coll chunk-size xforms]
+  (c/let [v (if (vector? coll) coll (into [] coll))]
+    (if (seq xforms)
+      (fold (nearest-pow2 (/ (c/count v) chunk-size))
+            (fn ([] init) ([a b] (rf a b)))
+            (apply xrf rf xforms)
+            v)
+      (r/fold chunk-size (fn ([] init) ([a b] (rf a b))) rf v))))
+
 (defn min
-  ([v]
-   (c/let [pivot (peek v)]
-     (r/fold
-       (fn ([] pivot) ([a b] (clojure.core/min a b)))
-       clojure.core/min v)))
-  ([v & xforms]
-   (c/let [pivot (peek v)]
-     (fold
-       (fn ([] pivot) ([a b] (clojure.core/min a b)))
-       (apply xrf clojure.core/min xforms)
-       v))))
+  "Find the min in coll in parallel. Accepts optional
+  transducers to apply to coll before searching the min.
+  Effective for coll size >10k items. 4000 is an approximate
+  minimal chunk size."
+  [coll & xforms]
+  (fold-adapt c/min ##Inf coll 4000 xforms))
 
 (defn max
-  ([v]
-   (c/let [pivot (peek v)]
-     (r/fold
-       (fn ([] pivot) ([a b] (clojure.core/max a b)))
-       clojure.core/max v)))
-  ([v & xforms]
-   (c/let [pivot (peek v)]
-     (fold
-       (fn ([] pivot) ([a b] (clojure.core/max a b)))
-       (apply xrf clojure.core/max xforms)
-       v))))
+  "Find the min in coll in parallel. Accepts optional
+  transducers to apply to coll before searching the min.
+  Effective for coll size >10k items. 4000 is an approximate
+  minimal chunk size."
+  [coll & xforms]
+  (fold-adapt c/max ##-Inf coll 4000 xforms))
 
 (defn amap
   "Applies f in parallel to the elements in the array.

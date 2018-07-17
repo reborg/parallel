@@ -376,12 +376,39 @@ Caveats and known problems:
 
 ### `p/min` and `p/max`
 
-`p/min` and `p/max` are analogous to the corresponding `core/min` and `core/max` functions, but they operate in parallel. They assume a vector of numbers as input (a lazy-sequence would have to be completely scanned anyway) and they allow any combination of transducers (stateless or stateful) to be passed in:
+`p/min` and `p/max` find the minimum or maximum in a vector of numbers in parallel (the input collection is converted into a vector if it's not already):
 
 ```clojure
-(let [c (into [] (shuffle (range 100000)))]
-  (p/max c (map dec) (filter odd?)))
-;; 99997
+(let [c (shuffle (conj (range 100000) -9))]
+  (p/min c))
+;; -9
+```
+
+They also allow any combination of transducers (stateless or stateful) to be passed in as arguments:
+
+```clojure
+(let [c (into [] (range 100000))]
+  (p/min c
+    (map dec)
+    (drop 20)
+    (partition-all 30)
+    (map last)
+    (filter odd?))) ;; 3173
+```
+
+`p/min` and `p/max` outperform sequential `core/min` and `core/max` starting at 10k items and up (depending on hardware configuration). For a 4 cores machine, the speed increase is roughly 50%:
+
+```clojure
+(require '[criterium.core :refer [bench]])
+(require '[parallel.core :as p])
+
+(def 1M (shuffle (range 1000000)))
+
+(bench (reduce min 1M)) ;; 9.963971 ms
+(bench (p/min 1M))      ;; 5.474384 ms
+
+(bench (transduce (comp (map inc) (filter odd?)) min ##Inf 1M)) ;; 22.701385 ms
+(bench (p/min 1M (map inc) (filter odd?)))                      ;; 12.085497 ms
 ```
 
 ### `p/distinct`
