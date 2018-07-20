@@ -320,9 +320,31 @@
   "Find the min in coll in parallel. Accepts optional
   transducers to apply to coll before searching the min.
   Effective for coll size >10k items. 4000 is an approximate
-  minimal chunk size."
+  fixed chunk size that works well in most cases."
   [coll & xforms]
   (fold-adapt c/max ##-Inf coll 4000 xforms))
+
+(defn f-index
+  ([f v]
+   (f-index 4000 f v))
+  ([threshold f v]
+   (when (peek v)
+     (mcombine/map
+       (fn [low high]
+         (loop [i low n (v low) idx low]
+           (if (< i high)
+             (c/let [n* (v i)]
+               (if (f n n*)
+                 (recur (unchecked-inc i) n idx)
+                 (recur (unchecked-inc i) n* i)))
+             [idx n])))
+       (fn [n1 n2]
+         (if (f (peek n1) (peek n2)) n1 n2))
+       (c/max threshold 2)
+       (c/count v)))))
+
+(defn min-index [v] (nth (f-index < v) 0))
+(defn max-index [v] (nth (f-index > v) 0))
 
 (defn amap
   "Applies f in parallel to the elements in the array.

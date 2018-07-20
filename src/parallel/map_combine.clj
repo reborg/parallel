@@ -15,12 +15,14 @@
         (let [middle (+ low (bit-shift-right size 1))
               l (MapCombine. low middle threshold mapf combinef)
               h (MapCombine. middle high threshold mapf combinef)]
+          ; (combinef (.call l) (.call h)) ; sequential debug
           (let [fc (fn [^Callable child] #(.call child))]
             (#'r/fjinvoke
               #(let [f1 (fc l)
                      t2 (#'r/fjtask (fc h))]
                  (#'r/fjfork t2)
-                 (combinef (f1) (#'r/fjjoin t2))))))))))
+                 (combinef (f1) (#'r/fjjoin t2)))))
+          )))))
 
 (defn map [mapf combinef threshold n]
   (let [^ForkJoinPool pool @r/pool]

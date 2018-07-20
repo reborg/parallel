@@ -135,11 +135,27 @@
     (let [c (shuffle (conj (range 100000) -3))]
       (is (= 99999 (p/max c)))))
   (testing "xducers"
-    (let [c (into [] (shuffle (conj (range 100000) -3)))]
+    (let [c (shuffle (conj (range 100000) -3))]
       (is (= 99998 (p/max c (map dec))))))
   (testing "min-index"
-    (let [c (conj (range 100000) -3)]
-      (is (= 99999 (p/max c))))))
+    (let [v (assoc (vec (range 100000)) 55555 -1)]
+      (is (= 55555 (p/min-index v)))))
+  (testing "max-index"
+    (let [v (assoc (vec (range 100000)) 55555 100001)]
+      (is (= 55555 (p/max-index v)))))
+  (testing "corner cases"
+    (let [v-same (vec (repeat 10000 1))]
+      (is (= 1 (p/min [1]) (p/max [1])))
+      (is (= ##Inf (p/min [])))
+      (is (= ##-Inf (p/max [])))
+      (is (= nil (p/min-index [])))
+      (is (= nil (p/max-index [])))
+      (is (= 0 (p/min-index [0])))
+      (is (= 0 (p/max-index [0])))
+      (is (= 0 (p/min-index [0 1])))
+      (is (= 1 (p/max-index [0 1])))
+      (is (= 1 (p/min v-same) (p/max v-same)))
+      (is (= 9999 (p/min-index v-same))))))
 
 (deftest pamap-test
   (testing "sanity"
