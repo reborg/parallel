@@ -587,7 +587,7 @@ The main transducing process runs until there are items in the filler sequence (
 
 ### `xf/pmap`
 
-`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like `core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `core/map`, `xf/pmap` processes items in parallel up to 32 simultaneously (with physical parallelism equal to the number of available cores):
+`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like `core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `core/map`, `xf/pmap` processes a fixed number of 32 items in parallel (competing for the actual number of physical cores):
 
 ```clojure
 (defn heavyf [x] (Thread/sleep 1000) (inc x))
@@ -598,7 +598,7 @@ The main transducing process runs until there are items in the filler sequence (
 ;; 1006ms
 ```
 
-`xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and performance of "f" applied to the input are uniform. If one `(f item)` takes much more than the others, the current 32-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources.
+`xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and the average elapsed of "f" is uniform across the input. If one `(f item)` takes much more than the others, the current N-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources. Use `xf/pmap` if your transducing transformation is reasonably big and complex.
 
 ### `xf/identity`
 
