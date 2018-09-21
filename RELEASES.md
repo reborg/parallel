@@ -1,6 +1,8 @@
 ## Release History
 
-### 0.6 (wip)
+### 0.7 (WIP)
+
+### 0.6
 
 * Added `p/slurp`
 * Consolidated and documented `p/min` and `p/max`
