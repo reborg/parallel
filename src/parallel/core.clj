@@ -372,7 +372,7 @@
   "Reverse an array."
   [f ^objects a]
   (loop [i 0]
-    (when (< i (quot (alength a) 2))
+    (when (<= i (quot (alength a) 2))
       (c/let [tmp (f (aget a i))
             j (- (alength a) i 1)]
         (aset a i (f (aget a j)))
