@@ -217,17 +217,6 @@
       ks)
     (if *mutable* output (into {} output))))
 
-(defn lazy-sort
-  "Lazily merge already sorted collections. Maintains order
-  through given comparator (or compare by default)."
-  ([colls]
-   (lazy-sort compare colls))
-  ([cmp colls]
-   (lazy-seq
-     (if (some identity (map first colls))
-       (c/let [[[winner & losers] & others] (sort-by first cmp colls)]
-         (cons winner (lazy-sort cmp (if losers (conj others losers) others))))))))
-
 (defn sort
   "Splits input coll into chunk of 'threshold' (default 8192)
   size then sorts chunks in parallel. Input needs conversion into a native
@@ -266,32 +255,42 @@
        threshold size)
      (if *mutable* a (parsef a)))))
 
+(defn unchunk-map [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons
+        (f (first s))
+        (unchunk-map f (rest s))))))
+
 (defn external-sort
   "Allows large datasets (that would otherwise not fit into memory)
-  to be sorted in parallel. Data to fetch is identified by a vector of IDs.
-  IDs are split into chunks which are processed in parallel using reducers.
-  'fetchf' is used on each ID to retrieve the relevant data.
-  The chunk is sorted using 'cmp' ('compare' by default) and saved to disk
-  to a temporary file that is dec/leted when the JVM exits.
-  The list of file handles is then used to merge the pre-sorted chunks lazily
-  while maintaining order."
+  to be sorted in parallel. It performs the following on a vector of 'ids'
+  and 'fetchf', a function from chunk->data:
+  * split ids into chunks of approximate size 'n'
+  * call 'fetchf' on a chunk and expects actual data in return
+  * sort actual data using 'cmp' ('compare' by default)
+  * save result to temporary files (deleted when the JVM exits)
+  * lazily concat files in order as they are requested"
   ([fetchf ids]
    (external-sort compare fetchf ids))
   ([cmp fetchf ids]
    (external-sort 512 compare fetchf ids))
   ([n cmp fetchf ids]
-   (letfn [(load-chunk [fname] (read-string (slurp fname)))
-           (save-chunk! [data]
+   (letfn [(save-chunk! [data]
              (c/let [file (File/createTempFile "mergesort-" ".tmp")]
-               (with-open [fw (io/writer file)] (binding [*out* fw] (pr data) file))))]
+               (with-open [fw (io/writer file)]
+                 (binding [*out* fw] (pr data)))
+               [(first data) file]))]
      (->>
-       (r/fold n concat
-         (fn [chunk] (->> chunk (map fetchf) (c/sort cmp) save-chunk! vector))
+       (r/fold
+         n concat
+         (fn [chunk] (->> chunk fetchf (c/sort cmp) save-chunk! vector))
          (reify r/CollFold
            (coll-fold [this n combinef f]
              (foldvec (into [] ids) n combinef f))))
-       (map load-chunk)
-       (lazy-sort cmp)))))
+       (sort-by first cmp)
+       (unchunk-map #(read-string (slurp (last %))))
+       (mapcat identity)))))
 
 (defn- nearest-pow2 [x]
   (int (Math/pow 2 (- 32 (Integer/numberOfLeadingZeros x)))))

@@ -14,8 +14,8 @@ Current:
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
 | [`p/group-by`](#pgroup-by)              | Parallel `core/group-by`
 | [`p/update-vals`](#pupdate-vals)        | Updates values in a map in parallel.
-| [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
+| [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
@@ -75,6 +75,46 @@ Don't use `p/let` if:
 * The expressions have dependencies. `p/let` cannot resolve cross references between expressions and will throw exception.
 * The expressions are trivial. In this case the thread orchestration outweighs the benefits of executing in parallel. Good expressions to parallelize are for example independent networked API calls, file system calls or other non trivial computations.
 
+### `p/slurp`
+
+`p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local files (no URLs or other input streams):
+
+```clojure
+(import 'java.io.File)
+(take 10 (.split (p/slurp (File. "test/words")) "\n"))
+;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
+```
+
+`p/slurp` offers a way to interpret the loaded byte array differently from a string, for example to load an entry from a zipped file:
+
+```clojure
+(import '[java.io File ByteArrayInputStream]
+        '[java.util.zip ZipFile ZipInputStream])
+
+(defn filenames-in-zip [bytes]
+  (let [z (ZipInputStream. (ByteArrayInputStream. bytes))]
+    (.getName (.getNextEntry z))))
+
+(p/slurp (File. "target/parallel-0.6.jar") filenames-in-zip)
+;; "META-INF/MANIFEST.MF"
+```
+
+When `*mutable*` is set to `true` the transformation step is skipped altogether and the raw byte array is returned:
+
+```clojure
+(import 'java.io.File)
+(binding [p/*mutable* true] (p/slurp (File. "test/words")))
+;; #object["[B" 0x705709a4 "[B@705709a4"]
+```
+
+`p/slurp` performs better than `core/slurp` on large files (> 500K). Here's for example a comparison benchmark to load a 2.4MB file:
+
+```clojure
+(import 'java.io.File)
+(let [fname "test/words" file (File. fname)] (bench (slurp file))) ; 8.84ms
+(let [fname "test/words" file (File. fname)] (bench (p/slurp file))) ; 2.87ms
+```
+
 ### `p/count`
 
 `p/count` can speed up counting on collections when non-trivial transformations are involved. It takes a composition of transducers and the collection to count. It applies the transducers to coll and produces a count of the resulting elements (in this case 1.2M):
@@ -115,16 +155,17 @@ See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcoun
 Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values. The following is the typical word frequencies example:
 
 ```clojure
+(require '[clojure.string :as s])
 (def war-and-peace "http://www.gutenberg.org/files/2600/2600-0.txt")
 (def book (slurp war-and-peace))
 (let [freqs (p/frequencies
               (re-seq #"\S+" book)
-              (map #(.toLowerCase ^String %)))]
+              (map s/lower-case))]
   (take 5 (sort-by last > freqs)))
 ;; (["the" 34258] ["and" 21396] ["to" 16500] ["of" 14904] ["a" 10388])
 
-(quick-bench (p/frequencies (re-seq #"\S+" book) (map #(.toLowerCase ^String %)))) ;; 165ms
-(quick-bench (frequencies (map #(.toLowerCase ^String %) (re-seq #"\S+" book)))) ;; 394ms
+(quick-bench (p/frequencies (re-seq #"\S+" book) (map s/lower-case))) ;; 165ms
+(quick-bench (frequencies (map s/lower-case (re-seq #"\S+" book)))) ;; 394ms
 ```
 
 ### `p/group-by`
@@ -138,7 +179,7 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
   (s/split (slurp "http://gutenberg.org/files/2600/2600-0.txt") #"\W+"))
 
 (def anagrams
-  (p/group-by sort war-and-peace (map #(.toLowerCase ^String %))))
+  (p/group-by sort war-and-peace (map s/lower-case)))
 
 (->> anagrams
   (map (comp distinct second))
@@ -159,8 +200,8 @@ Like `core/frequencies`, but executes in parallel. It takes an optional list of 
 (require '[criterium.core :refer [quick-bench]])
 
 ;; with transformation (which boosts p/group-by even further)
-(quick-bench (group-by sort (map #(.toLowerCase ^String %) war-and-peace)))   ;; 957ms
-(quick-bench (p/group-by sort war-and-peace (map #(.toLowerCase ^String %)))) ;; 259ms
+(quick-bench (group-by sort (map s/lower-case war-and-peace)))   ;; 957ms
+(quick-bench (p/group-by sort war-and-peace (map s/lower-case))) ;; 259ms
 
 ;; fair comparison without transformations
 (quick-bench (group-by sort war-and-peace))   ;; 936ms
@@ -172,7 +213,7 @@ A further boost can be achieved by avoiding conversion back to immutable data st
 ```clojure
 (quick-bench
   (binding [p/*mutable* true]
-    (p/group-by sort war-and-peace (map #(.toLowerCase ^String %))))) ;; 168ms
+    (p/group-by sort war-and-peace (map s/lower-case)))) ;; 168ms
 ```
 
 When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap with ConcurrentLinkedQueue as values. They are both easy to deal with from Clojure.
@@ -180,7 +221,7 @@ When invoked with `p/*mutable*`, `p/group-by` returns a Java ConcurrentHashMap w
 ```clojure
 (def anagrams
   (binding [p/*mutable* true]
-    (p/group-by sort war-and-peace (map #(.toLowerCase ^String %)))))
+    (p/group-by sort war-and-peace (s/lower-case))))
 
 (distinct (into [] (.get anagrams (sort "stop"))))
 ;; ("post" "spot" "stop" "tops" "pots")
@@ -281,24 +322,78 @@ As you can see, the conversion into array is responsible for most of the sorting
 
 ### `p/external-sort`
 
-`merge-sort` is a well known example of parallelizable sorting algorithm. There was also a time when machines had to use tapes to process large amount of data, loading smaller chunks into main memory. `merge-sort` is also suitable for that. Today we still have big-data and slow external storage such as S3 for which something like a file based merge-sort could still be useful. `p/external-sort` can be used to fetch large amount of data from slow storage, order them by some attribute and consume only the part that is actually needed (for example "find the top most" kind of problems).
+`merge-sort` is a well known example of parallelizable sorting algorithm. There was a time when machines were forced to use tapes to process large amount of data, loading smaller chunks into memory one at a time. The `merge-sort` sorting algorithm for example, is suitable for this kind of processing. Today we have bigger memories, but also big-data. File-based merge-sort implementations could still be useful to work with external storage such as S3.
 
-A simple `p/external-sort` example is the following:
+`p/external-sort` can be used to fetch large amount of data from slow storage, order them by some attribute and consume only the part that is actually needed (e.g. "find the top most" kind of problems). A working but not very useful `p/external-sort` example is the following:
 
 ```clojure
-(let [fetchf (fn [id] id)
+(let [fetchf (fn [ids] ids)
       v (into [] (reverse (range 10000)))]
   (take 5 (p/external-sort 1000 compare fetchf v)))
 ;; [0 1 2 3 4]
 ```
 
-`p/external-sort` accepts a vector "v" of IDs as input. The unique identifiers are used to fetch the whole data object from some remote storage. "fetchf" is the way to tell `p/external-sort` how to retrieve the entire object given a single id (in this example, fetching the id has been simulated by returning the id itself). The IDs are split into chunks not bigger than 1000 items each (512 by default).
+`p/external-sort` accepts a vector "v" of IDs as input. The unique identifiers are used to fetch data objects from remote storage. "fetchf" is the way to tell `p/external-sort` how to retrieve the object given a group of ids (in this example, fetching the id has been simulated by returning the ids themselves). Input IDs are split into chunks not bigger than "1000" (with 512 the default).
 
-Once all data is retrieved for a chunk, data are sorted using the given comparator ("compare" is the default) and the result is stored in a temporary file on disk. 16 files are created in this example, as the number of files needs to be a power of two and `(/ 10000 16) = 625` is the first split that generates chunk less than 1000 in size.
+Once all data is retrieved for a chunk, data are sorted using the given comparator ("core/compare" by default) and the result is stored in a temporary file on disk. The above example creates 16 files, as the number of files needs to be a power of two and `(/ 10000 16) = 625` is the first split that generates chunk less than 1000 in size.
 
-Once all chunk are retrieved, sorted and stored on disk, the result is made available as a lazy sequence. If the lazy sequence is never fully consumed, the temporary files are never loaded in memory all at once. We are taking the first 5 elements in the example, which means that some of the stored files are never loaded into memory.
+Once all chunks are retrieved and sorted on disk, the result is available as a lazy sequence, which is the type returned by `p/external-sort`. If the lazy sequence is not fully consumed, the related files are never loaded in memory. In the example above, some files are never loaded in memory. A call to `last` (instead of `take 5`) would load all files. If the head of the sequence is not retained, the content of the files is garbage collected from memory accordingly.
 
-The degree of parallelism with which "fetchf" is invoked is equal to the number of cores (physical or virtual) available on the running system. If the collection of IDs is a not a vector, it will be converted into one.
+The next example verifies these assumptions with a large dataset of around 20M played songs. Each song contains userid, track title, time it was played and other information. We want to print the most recently played songs but we can't load the 2.5 GB file in memory to sort it without blowing the heap (on a normal laptop).
+
+You can download the dataset from this page: http://www.dtic.upf.edu/~ocelma/MusicRecommendationDataset/lastfm-1K.html. We are then going to split the file on disk into smaller but still unordered files with:
+
+```bash
+split -a 4 -l 18702 userid-timestamp-artid-artname-traid-traname.tsv
+num=0; for i in *; do mv "$i" "$num"; ((num++)); done
+```
+
+The big tsv file contains exactly 19150868 played songs. We pick a split size that is the closest to `(Math/pow 2 10)`, which creates 1024 files of a reasonable size (18702 lines) plus a last one containing the remaining 20. We also rename the files using an incremental, so we can quickly know which file contains what. You should now have a folder with 1025 files named 0 to 1024 (no extension). Here's how to use `p/external-sort` to retrieve the top 3 most recently played tracks:
+
+```clojure
+(require '[clojure.string :as s])
+
+(let [lines 19150868
+      chunk-size 18702
+      chunk-folder "../resources/lastfm-dataset-1K/splits/"
+      fetchf (fn [ids]
+               (->> (quot (last ids) chunk-size)
+                    (str chunk-folder)
+                    slurp
+                    s/split-lines
+                    (mapv #(s/split % #"\t"))))]
+  (pprint (time (take 3
+    (p/external-sort
+      chunk-size
+      #(compare (nth %2 1) (nth %1 1))
+      fetchf
+      (range lines))))))
+```
+
+The degree of parallelism with which "fetchf" is invoked is equal to the number of cores (physical or virtual) available on the running system. If the collection of IDs is a not a vector, it is converted into one. `fetchf` is provided a group of ids and we can calculate which file contains those IDs because we know their name and size. The custom comparator uses the timestamp found at index 1 after each line is split by tabs (the format of the file). After about 1 minute (my machine) we get:
+
+```
+(["user_000762"
+  "2013-09-29T18:32:04Z"
+  "d8354b38-e942-4c89-ba93-29323432abc3"
+  "30 Seconds To Mars"
+  "b5b40605-5a81-46b4-a51e-2b1ec7964c1a"
+  "A Beautiful Lie"]
+ ["user_000762"
+  "2009-05-02T02:01:47Z"
+  "91f7a868-d82e-4cfb-9cd9-a2ffd7faac25"
+  "The Cab"
+  "7ede8578-bf9c-4e68-a060-56924202cdf0"
+  "This City Is Contagious"]
+ ["user_000762"
+  "2009-05-02T01:58:09Z"
+  "91f7a868-d82e-4cfb-9cd9-a2ffd7faac25"
+  "The Cab"
+  "14298942-7452-444f-9fb7-3199464957d6"
+  "Can You Keep A Secret?"])
+```
+
+By taking more results instead of just the top 3, more files will need to load into memory. If you don't hold on the head of the sequence, you can any other part of the ordered sequence including the last element without incurring into an out of memory (about 2 minutes later in my machine).
 
 ### `p/fold`, `p/xrf` and `p/folder`
 
@@ -516,46 +611,6 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 ```
 
 You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
-
-### `p/slurp`
-
-`p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local files (no URLs or other input streams):
-
-```clojure
-(import 'java.io.File)
-(take 10 (.split (p/slurp (File. "test/words")) "\n"))
-;; ("A" "a" "aa" "aal" "aalii" "aam" "Aani" "aardvark" "aardwolf" "Aaron")
-```
-
-`p/slurp` offers a way to interpret the loaded byte array differently from a string, for example to load an entry from a zipped file:
-
-```clojure
-(import '[java.io File ByteArrayInputStream]
-        '[java.util.zip ZipFile ZipInputStream])
-
-(defn filenames-in-zip [bytes]
-  (let [z (ZipInputStream. (ByteArrayInputStream. bytes))]
-    (.getName (.getNextEntry z))))
-
-(p/slurp (File. "target/parallel-0.6.jar") filenames-in-zip)
-;; "META-INF/MANIFEST.MF"
-```
-
-When `*mutable*` is set to `true` the transformation step is skipped altogether and the raw byte array is returned:
-
-```clojure
-(import 'java.io.File)
-(binding [p/*mutable* true] (p/slurp (File. "test/words")))
-;; #object["[B" 0x705709a4 "[B@705709a4"]
-```
-
-`p/slurp` performs better than `core/slurp` on large files (> 500K). Here's for example a comparison benchmark to load a 2.4MB file:
-
-```clojure
-(import 'java.io.File)
-(let [fname "test/words" file (File. fname)] (bench (slurp file))) ; 8.84ms
-(let [fname "test/words" file (File. fname)] (bench (p/slurp file))) ; 2.87ms
-```
 
 ### `xf/interleave`
 

@@ -2,6 +2,9 @@
 
 ### 0.7 (WIP)
 
+* Fix bug in `p/armap` for the sequential case.
+* Fixed missing laziness in external-sort
+
 ### 0.6
 
 * Added `p/slurp`

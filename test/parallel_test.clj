@@ -121,11 +121,17 @@
       (is (= coll (p/sort 200 > coll)))
       (is (= (sort compare c2) (p/sort compare c2))))))
 
+;; (int (/ 100000 (Math/pow 2 8)))
 (deftest external-sorting
   (testing "sanity"
     (let [coll (into [] (reverse (range 1000)))]
-      (is (= (range 1000)
-             (p/external-sort 200 compare identity coll))))))
+      (is (= 0
+             (first (p/external-sort 125 compare identity coll))))))
+  (testing "additional processing"
+    (let [coll (map #(str % "-" %) (range 100000))
+          fetchf (fn [c] (map #(clojure.string/split % #"-") c))]
+      (is (= ["99999" "99999"]
+             (first (p/external-sort 1562 #(compare (peek %2) (peek %1)) fetchf coll)))))))
 
 (deftest min-max
   (testing "min"
