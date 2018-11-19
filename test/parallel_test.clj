@@ -197,4 +197,26 @@
     (is (= 3 (p/let [a 1 b 2] (+ a b))))
     (is (= 3 (p/let [a (future 1) b (future 2)] (+ @a @b))))
     (is (= 6 (p/let [[a b] [1 2] {c :c} {:c 3}] (+ a b c))))
-    (is (p/let [a (do (Thread/sleep 200) 100) b (do (Thread/sleep 100) 200)] (+ a b)))))
+    (is (= 300 (p/let [a (do (Thread/sleep 20) 100) b (do (Thread/sleep 10) 200)] (+ a b))))))
+
+(deftest parallel-args
+  (testing "works like a standard function invocation" 
+    (is (= 6 (p/args + 1 2 3)))
+    (is (= 1 (p/args first [1 2 3])))
+    (is (= 300 (p/args + (do (Thread/sleep 20) 100) (do (Thread/sleep 10) 200))))))
+
+(deftest parallel-and
+  (testing "works like a standard and"
+    (is (= (and) (p/and)))
+    (is (= "a"   (p/and true 1 "a")))
+    (is (= :x    (p/and :y true :x)))
+    (is (= false (p/and true false true)))
+    (is (p/and (do (Thread/sleep 20) true) (do (Thread/sleep 10) true)))))
+ 
+(deftest parallel-or
+  (testing "works like a standard or"
+    (is (= (or)  (p/or)))
+    (is (= true  (p/or true 1 "a")))
+    (is (= :y    (p/or false :y true :x)))
+    (is (= true  (p/or true false true)))
+    (is (p/or (do (Thread/sleep 20) false) (do (Thread/sleep 10) true)))))

@@ -1,6 +1,7 @@
 (ns parallel.core
   (:refer-clojure :exclude [eduction sequence frequencies let slurp
-                            count group-by sort min max amap distinct])
+                            count group-by sort min max amap distinct
+                            and or])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
@@ -24,7 +25,7 @@
 (def ^:dynamic *mutable* false)
 
 (defn- foldable? [coll]
-  (or (map? coll)
+  (c/or (map? coll)
       (vector? coll)
       (instance? clojure.core.reducers.Cat coll)))
 
@@ -178,7 +179,7 @@
         combinef (fn ([] m) ([m1 m2]))
         rf (fn [^Map m x]
              (c/let [k (f x)
-                   ^Queue a (or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
+                   ^Queue a (c/or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
                (when a (.add a x))
                m))]
     (fold combinef (apply xrf rf xforms) coll)
@@ -193,7 +194,7 @@
         m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([_ _]))
         rf (fn [^Map m k]
-             (c/let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+             (c/let [^AtomicInteger v (c/or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                (when v (.incrementAndGet v))
                m))]
     (fold combinef (apply xrf rf xforms) coll)
@@ -361,7 +362,7 @@
   Preconditions: (pos? (alength a)), (< low high), (pos? radius)"
   [f low high radius ^objects a]
   (loop [left low right high]
-    (when (and (<= left right) (< left (+ low radius)))
+    (when (c/and (<= left right) (< left (+ low radius)))
       (c/let [tmp (f (aget a left))]
         (aset a left (f (aget a right)))
         (aset a right tmp)
@@ -387,7 +388,7 @@
    (when a
      (armap (quot (alength a) (* 2 ncpu)) f a)))
   ([threshold f ^objects a]
-   (when (and a (pos? (alength a)))
+   (when (c/and a (pos? (alength a)))
      (if (pos? threshold)
        (forkm/submit f arswap threshold a)
        (sequential-armap f a))) a))
@@ -407,3 +408,36 @@
     `(c/let ~(vec (interleave ts (map #(list 'future %) vs)))
        (c/let ~(vec (interleave ks (map #(list 'deref %) ts)))
          ~@body))))
+
+(defmacro args
+  "Call the function with each argument first being evaluated in 
+   parralel
+   Example psuedo-expansion:
+    (p/args + 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                          (+ @a @b @c))"
+  [fx & args] 
+  (c/let [ts (take (c/count args) (repeatedly gensym))]
+    `(c/let ~(vec (interleave ts (map #(list 'future %) args)))
+       (~fx ~@(map #(list 'deref %) ts)))))
+
+(defmacro or
+  "Calls `or` with each argument first being evaluated in 
+   parralel.
+   Example psuedo-expansion:
+    (p/or 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                      (p/or @a @b @c))"
+  [& args] 
+  (c/let [ts (take (c/count args) (repeatedly gensym))]
+    `(let ~(vec (interleave ts (map #(list 'future %) args)))
+       (reduce #(c/or %1 %2) nil  ~(vec (map #(list 'deref %) ts))))))
+
+(defmacro and
+  "Calls `and` with each argument first being evaluated in 
+   parralel.
+   Example psuedo-expansion:
+    (p/and 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                       (and @a @b @c))"
+  [& args] 
+  (c/let [ts (take (c/count args) (repeatedly gensym))]
+    `(let ~(vec (interleave ts (map #(list 'future %) args)))
+       (reduce #(c/and %1 %2) true  ~(vec (map #(list 'deref %) ts))))))

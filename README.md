@@ -24,13 +24,15 @@ Current:
 | [`xf/interleave`](#xfinterleave)        | Like `core/interleave`, transducer version.
 | [`xf/pmap`](#xfpmap)                    | Like `core/pmap`, transducer version.
 | [`xf/identity`](#xfidentity)            | Alternative identity transducer to `core/identity`
+| [`p/args`](#pargs)                      | Invoke a function with arguments first evaluated in parallel.
+| [`p/and`](#pand)                        | Invoke `or` with arguments first evaluated in parallel.
+| [`p/or`](#por)                          | Invoke `and` with arguments first evaluated in parallel.
 
 In the pipeline:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
-| `p/split-by`                            | Splitting transducer based on contiguous elements.
-| `p/or` `p/and`                          | Conditions in parallel
+| `p/split-by`                            | Splitting transducer based on contiguous elements. 
 
 ### How to use the library
 
@@ -611,6 +613,36 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 ```
 
 You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
+
+### `p/args`
+
+Macro that calls a function `fx` with arguments `& args` first
+evaluated in parallel:
+
+```clj
+(p/args + 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                          (+ @a @b @c))
+```
+
+### `p/and`
+
+Macro that calls `and` with arguments `& args` first evaluated in
+parallel:
+
+```clj
+(p/and 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                   (and @a @b @c))
+```
+
+### `p/or`
+
+Macro that calls `or` with arguments `& args` first evaluated in
+parallel:
+
+```clj
+(p/or 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
+                  (or @a @b @c))
+```
 
 ### `xf/interleave`
 
