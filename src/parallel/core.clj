@@ -17,8 +17,6 @@
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
 
-(set! *warn-on-reflection* true)
-(set! *unchecked-math* true)
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
 
 (def ^:dynamic *mutable* false)
