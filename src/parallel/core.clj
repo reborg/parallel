@@ -1,5 +1,5 @@
 (ns parallel.core
-  (:refer-clojure :exclude [eduction sequence frequencies let slurp
+  (:refer-clojure :exclude [eduction sequence frequencies let slurp do doto
                             count group-by sort min max amap distinct
                             and or])
   (:require [parallel.foldmap :as fmap]
@@ -411,44 +411,56 @@
        (c/let ~(vec (interleave ks (map #(list 'deref %) ts)))
          ~@body))))
 
-<<<<<<< HEAD
 (defmacro args
-  "Call the function with each argument first being evaluated in 
+  "Call the function with each argument first being evaluated in
    parralel
    Example psuedo-expansion:
     (p/args + 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
                           (+ @a @b @c))"
-  [fx & args] 
+  [fx & args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(c/let ~(vec (interleave ts (map #(list 'future %) args)))
        (~fx ~@(map #(list 'deref %) ts)))))
 
 (defmacro or
-  "Calls `or` with each argument first being evaluated in 
+  "Calls `or` with each argument first being evaluated in
    parralel.
    Example psuedo-expansion:
     (p/or 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
                       (p/or @a @b @c))"
-  [& args] 
+  [& args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(let ~(vec (interleave ts (map #(list 'future %) args)))
        (reduce #(c/or %1 %2) nil  ~(vec (map #(list 'deref %) ts))))))
 
 (defmacro and
-  "Calls `and` with each argument first being evaluated in 
+  "Calls `and` with each argument first being evaluated in
    parralel.
    Example psuedo-expansion:
     (p/and 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
                        (and @a @b @c))"
-  [& args] 
+  [& args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(let ~(vec (interleave ts (map #(list 'future %) args)))
        (reduce #(c/and %1 %2) true  ~(vec (map #(list 'deref %) ts))))))
-=======
+
 (defmacro do
   "Like core/do but forms evaluate in paralell."
   [& body]
-  (c/let [ts (repeatedly gensym)
-          bindings (vec (interleave ts body))]
-    `(let ~bindings ~(peek (pop bindings)))))
->>>>>>> do
+  (when-not (empty? body)
+    (c/let [ts (repeatedly gensym)
+            bindings (vec (interleave ts body))]
+      `(let ~bindings ~(peek (pop bindings))))))
+
+(defmacro doto
+  "Like core/doto but forms evaluate in parallel."
+  [x & forms]
+  (c/let [target (gensym)]
+    `(c/let [~target ~x]
+       (parallel.core/do
+         ~@(map (fn [f]
+                  (if (seq? f)
+                    `(~(first f) ~target ~@(next f))
+                    `(~f ~target)))
+                forms))
+       ~target)))

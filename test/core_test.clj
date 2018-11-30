@@ -223,7 +223,10 @@
 
 (deftest parallel-do-doto
   (testing "like do, but forms evaluated in parallel."
+    (is (= nil (p/do)))
+    (is (= 1 (p/do 1)))
     (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2) (vec a)))))
     (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2)) (vec a)))))
   (testing "like doto, but forms evaluated in parallel."
-    (is (= [1 2] (vec (p/doto (ArrayList.) (.add a 1) (.add a 2)))))))
+    (is (= 1 (p/doto 1)))
+    (is (= [1 2] (vec (p/doto (ArrayList.) (.add 1) (.add 2)))))))
