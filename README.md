@@ -98,6 +98,47 @@ Don't use `p/let` if:
 
 As demonstrated by the output, there is no guarantee about the order in which the form are evaluated, so the use of `p/do` should be restricted to side effecting forms without an ordering requirement.
 
+### `p/doto`
+
+Similarly to `core/doto`, `p/doto` threads an expression into the following forms (presumably for side effects) and then returns the same expression at the end. Threading through forms happens in parallel:
+
+```clojure
+(import 'java.util.ArrayList)
+
+(p/doto
+  (ArrayList.)
+  (.add 1)
+  (.add 2))
+;; [1 2]
+```
+
+Like other parallel macros, `p/doto` evaluates form in an unspecified order and it's effective when the performed operations are not trivial. The following expression, for example, executes in 1/4 of the time:
+
+```clojure
+(require '[clojure.xml :as xml])
+(import 'java.util.HashMap)
+
+(def feeds (HashMap.))
+
+(time
+  (def feeds
+    (doto (HashMap.)
+      (.put :a (Thread/sleep 1000))
+      (.put :b (Thread/sleep 1000))
+      (.put :c (Thread/sleep 1000))
+      (.put :d (Thread/sleep 1000)))))
+;; "Elapsed time: 4009.656834 msecs"
+
+(time
+  (def feeds
+    (p/doto (HashMap.)
+      (.put :a (Thread/sleep 1000))
+      (.put :b (Thread/sleep 1000))
+      (.put :c (Thread/sleep 1000))
+      (.put :d (Thread/sleep 1000)))))
+;; "Elapsed time: 1006.563343 msecs"
+```
+
 ### `p/slurp`
 
 `p/slurp` loads the content of a file in parallel. Compared to `core/slurp`, it only supports local files (no URLs or other input streams):

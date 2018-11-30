@@ -1,5 +1,5 @@
 (ns parallel.core
-  (:refer-clojure :exclude [eduction sequence frequencies let slurp
+  (:refer-clojure :exclude [eduction sequence frequencies let slurp do doto
                             count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
@@ -415,6 +415,20 @@
 (defmacro do
   "Like core/do but forms evaluate in paralell."
   [& body]
-  (c/let [ts (repeatedly gensym)
-          bindings (vec (interleave ts body))]
-    `(let ~bindings ~(peek (pop bindings)))))
+  (when-not (empty? body)
+    (c/let [ts (repeatedly gensym)
+            bindings (vec (interleave ts body))]
+      `(let ~bindings ~(peek (pop bindings))))))
+
+(defmacro doto
+  "Like core/doto but forms evaluate in parallel."
+  [x & forms]
+  (c/let [target (gensym)]
+    `(c/let [~target ~x]
+       (parallel.core/do
+         ~@(map (fn [f]
+                  (if (seq? f)
+                    `(~(first f) ~target ~@(next f))
+                    `(~f ~target)))
+                forms))
+       ~target)))
