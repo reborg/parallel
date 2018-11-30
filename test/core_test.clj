@@ -1,5 +1,5 @@
-(ns parallel-test
-  (:import [clojure.lang RT] [java.io File])
+(ns core-test
+  (:import [clojure.lang RT] [java.io File] [java.util ArrayList])
   (:require [parallel.core :as p]
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
@@ -196,5 +196,13 @@
   (testing "it works like normal let"
     (is (= 3 (p/let [a 1 b 2] (+ a b))))
     (is (= 3 (p/let [a (future 1) b (future 2)] (+ @a @b))))
-    (is (= 6 (p/let [[a b] [1 2] {c :c} {:c 3}] (+ a b c))))
-    (is (p/let [a (do (Thread/sleep 200) 100) b (do (Thread/sleep 100) 200)] (+ a b)))))
+    (is (= 6 (p/let [[a b] [1 2] {c :c} {:c 3}] (+ a b c))))))
+
+(deftest parallel-do-doto
+  (testing "like do, but forms evaluated in parallel."
+    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2) (vec a)))))
+    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2)) (vec a)))))
+  (testing "like doto, but forms evaluated in parallel."
+    (is (= [1 2] (vec (p/doto (ArrayList.) (.add a 1) (.add a 2)))))
+    )
+  )

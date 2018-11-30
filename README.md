@@ -4,11 +4,12 @@
 
 The library also provides additional transducers (not necessarily for parallel use) and supporting utilities. The functions documented below have been tested and benchmarked and are ready to use. Please report any issue or ideas for improvements, I'll be happy to help.
 
-Current:
+Functions and macros:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/let`](#plet)                        | Parallel `let` bindings.
+| [`p/do`](#do)                           | Parallel `do` forms.
 | [`p/slurp`](#pslurp)                    | Parallel slurping files.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
@@ -21,6 +22,11 @@ Current:
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
+
+Transducers:
+
+| Name                                    | Description
+|-----------------------------------------| ---------------------------------------------------
 | [`xf/interleave`](#xfinterleave)        | Like `core/interleave`, transducer version.
 | [`xf/pmap`](#xfpmap)                    | Like `core/pmap`, transducer version.
 | [`xf/identity`](#xfidentity)            | Alternative identity transducer to `core/identity`
@@ -74,6 +80,23 @@ Don't use `p/let` if:
 
 * The expressions have dependencies. `p/let` cannot resolve cross references between expressions and will throw exception.
 * The expressions are trivial. In this case the thread orchestration outweighs the benefits of executing in parallel. Good expressions to parallelize are for example independent networked API calls, file system calls or other non trivial computations.
+
+### `p/do`
+
+`p/do` works like normal `core/do` to encapsulate evaluation of multiple forms (presumably for side effects). It returns the last evaluated form:
+
+```clojure
+(def counter (atom 0))
+
+(p/do
+  (swap! counter inc)
+  (println "counter incremented" @counter)
+  (map inc (range 1000))
+  (println "more stuff to do"))
+;; counter incremented more stuff to do0
+```
+
+As demonstrated by the output, there is no guarantee about the order in which the form are evaluated, so the use of `p/do` should be restricted to side effecting forms without an ordering requirement.
 
 ### `p/slurp`
 
