@@ -397,7 +397,11 @@
           msg (format "%s requires %s in %s:%s" (first form) msg *ns* line)]
       (throw (IllegalArgumentException. msg)))))
 
-(defmacro let [bindings & body]
+(defmacro let
+  "Evaluates bindings in parallel and returns the result of
+  evaluating body in the context of those bindings. Bindings
+  have to be indpendent from each other."
+  [bindings & body]
   (should-be (vector? bindings) "a vector for its bindings" &form)
   (should-be (even? (c/count bindings)) "an even number of forms in bindings" &form)
   (c/let [ks (take-nth 2 bindings)
@@ -407,6 +411,7 @@
        (c/let ~(vec (interleave ks (map #(list 'deref %) ts)))
          ~@body))))
 
+<<<<<<< HEAD
 (defmacro args
   "Call the function with each argument first being evaluated in 
    parralel
@@ -439,3 +444,11 @@
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(let ~(vec (interleave ts (map #(list 'future %) args)))
        (reduce #(c/and %1 %2) true  ~(vec (map #(list 'deref %) ts))))))
+=======
+(defmacro do
+  "Like core/do but forms evaluate in paralell."
+  [& body]
+  (c/let [ts (repeatedly gensym)
+          bindings (vec (interleave ts body))]
+    `(let ~bindings ~(peek (pop bindings)))))
+>>>>>>> do

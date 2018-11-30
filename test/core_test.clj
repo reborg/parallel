@@ -1,5 +1,5 @@
-(ns parallel-test
-  (:import [clojure.lang RT] [java.io File])
+(ns core-test
+  (:import [clojure.lang RT] [java.io File] [java.util ArrayList])
   (:require [parallel.core :as p]
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
@@ -200,7 +200,7 @@
     (is (= 300 (p/let [a (do (Thread/sleep 20) 100) b (do (Thread/sleep 10) 200)] (+ a b))))))
 
 (deftest parallel-args
-  (testing "works like a standard function invocation" 
+  (testing "works like a standard function invocation"
     (is (= 6 (p/args + 1 2 3)))
     (is (= 1 (p/args first [1 2 3])))
     (is (= 300 (p/args + (do (Thread/sleep 20) 100) (do (Thread/sleep 10) 200))))))
@@ -212,7 +212,7 @@
     (is (= :x    (p/and :y true :x)))
     (is (= false (p/and true false true)))
     (is (p/and (do (Thread/sleep 20) true) (do (Thread/sleep 10) true)))))
- 
+
 (deftest parallel-or
   (testing "works like a standard or"
     (is (= (or)  (p/or)))
@@ -220,3 +220,10 @@
     (is (= :y    (p/or false :y true :x)))
     (is (= true  (p/or true false true)))
     (is (p/or (do (Thread/sleep 20) false) (do (Thread/sleep 10) true)))))
+
+(deftest parallel-do-doto
+  (testing "like do, but forms evaluated in parallel."
+    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2) (vec a)))))
+    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2)) (vec a)))))
+  (testing "like doto, but forms evaluated in parallel."
+    (is (= [1 2] (vec (p/doto (ArrayList.) (.add a 1) (.add a 2)))))))
