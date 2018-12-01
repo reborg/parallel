@@ -9,8 +9,8 @@ Functions and macros:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/let`](#plet)                        | Parallel `let` bindings.
-| [`p/do`](#do)                           | Parallel `do` forms.
-| [`p/doto`](#doto)                       | Parallel `do` forms.
+| [`p/do`](#pdo)                          | Parallel `do` forms.
+| [`p/doto`](#pdoto)                      | Parallel `do` forms.
 | [`p/slurp`](#pslurp)                    | Parallel slurping files.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
