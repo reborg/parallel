@@ -71,7 +71,9 @@
   (testing "p/transduce"
     (let [v (vec (range 10000))]
       (is (= (reduce + 0 (filter odd? (map inc v)))
-             (p/transduce (comp (map inc) (filter odd?)) + v)))))
+             (p/transduce (comp (map inc) (filter odd?)) + v)))
+      (is (= (reduce conj [] (filter odd? (map inc v)))
+             (p/transduce (comp (map inc) (filter odd?)) conj into v)))))
 
   (testing "p/folding without reducing, just conj"
     (let [v (vec (range 10000))]

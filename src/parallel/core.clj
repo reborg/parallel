@@ -138,14 +138,16 @@
    (r/fold ::ignored combinef reducef (folder coll n))))
 
 (defn transduce
-  "Like core/transduce, but executes transducers in parallel. It is based
-  on p/fold semantic to handle stateful transducers."
+  "Similar to core/transduce, but executes transducers in parallel.
+  Instead of `init`, it accepts a combinef to combine results back
+  from parallel execution  When combinef is present, it takes
+  precedence over f to establish the initial value for the reduction."
   ([xform f coll]
-   (transduce xform f (f) coll))
-  ([xform f init coll]
-   (fold
-     (r/monoid f (constantly init))
-     (xrf f xform) coll)))
+   (transduce xform f f coll))
+  ([xform f combinef coll]
+   (transduce 32 xform f combinef coll))
+  ([n xform f combinef coll]
+   (fold n combinef (xrf f xform) coll)))
 
 (defn count
   ([xform coll]
