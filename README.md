@@ -46,7 +46,7 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.6"]
+[parallel "0.7"]
 ```
 
 Require at the REPL with:
@@ -168,7 +168,7 @@ Like other parallel macros, `p/doto` it's effective when the performed operation
   (let [z (ZipInputStream. (ByteArrayInputStream. bytes))]
     (.getName (.getNextEntry z))))
 
-(p/slurp (File. "target/parallel-0.6.jar") filenames-in-zip)
+(p/slurp (File. "target/parallel-0.7.jar") filenames-in-zip)
 ;; "META-INF/MANIFEST.MF"
 ```
 
