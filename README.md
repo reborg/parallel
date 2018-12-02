@@ -19,6 +19,7 @@ Functions and macros:
 | [`p/sort`](#psort)                      | Parallel `core/sort`.
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
+| [`p/transduce`](#ptransduce)            | Parallel version of `transduce` based on `p/fold`.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
@@ -535,6 +536,44 @@ The single argument for transducers is a vector pair containing a key and a valu
 Caveats and known problems:
 
 * Stateful transducers like `dedupe` and `distinct`, that operates correctly at the chunk level, can bring back duplicates once combined back into the final result. Keep that in mind if absolute uniqueness is a requirement, you might need an additional step outside `p/fold` to ensure final elimination of duplicates. I'm thinking what else can be done to avoid the problem in the meanwhile.
+
+### `p/transduce`
+
+`p/transduce` is a parallel version of the same function present in core:
+
+```clojure
+(p/transduce (comp (filter odd?) (map inc)) + (vec (range 1000)))
+;; 250500
+```
+
+Similarly to `p/fold`, you can use stateful transducers with `p/transduce`. When you do, it's better to design your computation around the number of chunks that are processed in parallel. `p/transduce` accepts the number of desired chunks and an additional "combinef" to know how to merge chunks back together.
+
+The example below takes 1000 items and operates in 4 parallel chunks of 250 each, dropping 240 items each chunk, and partitioning the remaining 10 into groups of 5. The results from each parallel thread is combined back with `into`:
+
+```clojure
+(p/transduce 4 (comp (drop 240) (partition-all 5)) conj into (vec (range 1000)))
+;; [[240 241 242 243 244]
+;;  [245 246 247 248 249]
+;;  [490 491 492 493 494]
+;;  [495 496 497 498 499]
+;;  [740 741 742 743 744]
+;;  [745 746 747 748 749]
+;;  [990 991 992 993 994]
+;;  [995 996 997 998 999]]
+```
+
+The equivalent operation attempted on `reducers/fold` would give inconsistent results (the result is different each run or throws exception because the state in statful transducers is shared across concurrent threads):
+
+```clojure
+(require '[clojure.core.reducers :as r])
+
+(r/fold
+  250
+  (r/monoid into conj)
+  ((comp (drop 240) (partition-all 5)) conj)
+  (vec (range 1000)))
+;; Sometimes ArrayOutOfBound, sometimes a bunch of random partitions.
+```
 
 ### `p/min` and `p/max`
 
