@@ -20,7 +20,7 @@ Functions and macros:
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
 | [`p/transduce`](#ptransduce)            | Parallel version of `transduce` based on `p/fold`.
-| [`p/process-filder`](#pprocess-folder)  | Process the files in a folder in parallel.
+| [`p/process-folder`](#pprocess-folder)  | Process the files in a folder in parallel.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
