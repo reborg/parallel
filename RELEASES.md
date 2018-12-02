@@ -5,6 +5,7 @@
 * Fix bug in `p/armap` for the sequential case.
 * Fixed missing laziness in external-sort
 * Added `p/do` and `p/doto`
+* Added `p/transduce`
 
 ### 0.6
 
