@@ -28,7 +28,8 @@
       (instance? clojure.core.reducers.Cat coll)))
 
 (defn- compose
-  "As a consequence, reducef cannot be a vector."
+  "As a consequence, reducef cannot be a vector.
+  TODO: could use meta?"
   [xrf]
   (if (vector? xrf)
     ((peek xrf) (nth xrf 0))
@@ -87,6 +88,15 @@
                    (#'r/fjfork t2)
                    (combinef (f1) (#'r/fjjoin t2))))))))
 
+(defn- reduce-leaf
+  "reduce-leaf executes at the chunk level, once
+  the splitting is done. It calls xform single arity
+  to flush any possible remaining state."
+  [reducef combinef]
+  #(c/let [f (compose reducef)
+           ret (r/reduce f (combinef) %)]
+     (if (vector? reducef) (f ret) ret)))
+
 (defprotocol Folder
   (folder [coll]
           [coll nchunks]))
@@ -107,11 +117,11 @@
     ([coll]
      (reify r/CollFold
        (coll-fold [this n combinef reducef]
-         (foldvec coll n combinef #(r/reduce (compose reducef) (combinef) %)))))
+         (foldvec coll n combinef (reduce-leaf reducef combinef)))))
     ([coll nchunks]
      (reify r/CollFold
        (coll-fold [this _ combinef reducef]
-         (foldvec coll (chunk-size coll nchunks) combinef #(r/reduce (compose reducef) (combinef) %))))))
+         (foldvec coll (chunk-size coll nchunks) combinef (reduce-leaf reducef combinef))))))
   clojure.lang.PersistentHashMap
   (folder
     ([coll]
@@ -153,7 +163,7 @@
   ([n xform coll]
    (c/let [coll (if (foldable? coll) coll (into [] coll))
          cnt (AtomicLong. 0)
-         reducef (xrf (fn [_ _] (.incrementAndGet cnt)) xform)
+         reducef (xrf (completing (fn [_ _] (.incrementAndGet cnt))) xform)
          combinef (constantly cnt)]
      (fold n combinef reducef coll)
      (.get cnt))))
@@ -192,7 +202,7 @@
                    ^Queue a (c/or (.get m k) (.putIfAbsent m k (ConcurrentLinkedQueue. [x])))]
                (when a (.add a x))
                m))]
-    (fold combinef (apply xrf rf xforms) coll)
+    (fold combinef (apply xrf (completing rf) xforms) coll)
     (if *mutable* m (persistent! (reduce-kv (fn [m k v] (assoc! m k (vec v))) (transient {}) m)))))
 
 (defn frequencies
@@ -207,7 +217,7 @@
              (c/let [^AtomicInteger v (c/or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                (when v (.incrementAndGet v))
                m))]
-    (fold combinef (apply xrf rf xforms) coll)
+    (fold combinef (apply xrf (completing rf) xforms) coll)
     (if *mutable* m (into {} m))))
 
 (defn update-vals
@@ -361,8 +371,8 @@
   (c/let [coll (if (foldable? coll) coll (into [] coll))
         m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
         combinef (fn ([] m) ([_ _]))
-        rf (fn [^Map m k] (.put m k 1) m)]
-    (fold combinef (apply xrf rf xforms) coll)
+        rf (fn put [^Map m k] (.put m k 1) m)]
+    (fold combinef (apply xrf (completing rf) xforms) coll)
     (if *mutable* (.keySet m) (enumeration-seq (.keys m)))))
 
 (defn arswap
