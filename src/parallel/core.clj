@@ -1,7 +1,7 @@
 (ns parallel.core
-  (:refer-clojure :exclude [eduction sequence frequencies let slurp do doto
-                            count group-by sort min max amap distinct
-                            and or])
+  (:refer-clojure :exclude [eduction sequence transduce
+                            frequencies let slurp do doto and or
+                            count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
             [parallel.merge-sort :as msort]
             [parallel.map-combine :as mcombine]
@@ -134,6 +134,16 @@
    (fold 32 combinef reducef coll))
   ([n combinef reducef coll]
    (r/fold ::ignored combinef reducef (folder coll n))))
+
+(defn transduce
+  "Like core/transduce, but executes transducers in parallel. It is based
+  on p/fold semantic to handle stateful transducers."
+  ([xform f coll]
+   (transduce xform f (f) coll))
+  ([xform f init coll]
+   (fold
+     (r/monoid f (constantly init))
+     (xrf f xform) coll)))
 
 (defn count
   ([xform coll]

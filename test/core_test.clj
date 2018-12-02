@@ -61,11 +61,28 @@
   (testing "p/fold entry point at 32 default chunks"
     (is (= (chunkedf #(drop 10 %) + (/ 2048 32) (vec (map inc (range 2048))))
            (p/fold (p/xrf + (drop 10) (map inc)) (vec (range 2048))))))
+
   (testing "p/fold VS r/fold on stateless xducers should be the same"
     (let [v (vec (range 10000))]
       (is (= (r/fold + ((comp (map inc) (filter odd?)) +) v)
              (p/fold (p/xrf + (map inc) (filter odd?)) v)
              (p/fold + ((comp (map inc) (filter odd?)) +) v)))))
+
+  (testing "p/transduce"
+    (let [v (vec (range 10000))]
+      (is (= (reduce + 0 (filter odd? (map inc v)))
+             (p/transduce (comp (map inc) (filter odd?)) + v)))))
+
+  (testing "p/folding without reducing, just conj"
+    (let [v (vec (range 10000))]
+      (is (= (reduce conj [] (filter odd? (map inc v)))
+             (r/fold
+               (r/monoid into (constantly []))
+               ((comp (map inc) (filter odd?)) conj) v)
+             (p/fold
+               (r/monoid into (constantly []))
+               ((comp (map inc) (filter odd?)) conj) v)))))
+
   (testing "hashmaps, not just vectors"
     (is (= {\a [21] \z [23] \h [10 12]}
            (p/fold
@@ -74,20 +91,22 @@
                (let [c (Character/toLowerCase ^Character (first k))]
                  (assoc m c (conj (get m c []) v))))
              (hash-map "abba" 21 "zubb" 23 "hello" 10 "hops" 12)))))
+
   (testing "folding hashmaps with transducers"
     (is (= {0 1 1 2 2 3 3 4}
            (p/fold
              (r/monoid merge (constantly {}))
              (p/xrf conj (map (fn [[k v]] [k (inc v)])))
              (hash-map 0 0 1 1 2 2 3 3)))))
+
   (testing "exercising all code with larger maps"
     (is (= 999
            ((p/fold
-             (r/monoid merge (constantly {}))
-             (p/xrf conj
-                    (filter (fn [[k v]] (even? k)))
-                    (map (fn [[k v]] [k (inc v)])))
-             (zipmap (range 10000) (range 10000))) 998)))))
+              (r/monoid merge (constantly {}))
+              (p/xrf conj
+                     (filter (fn [[k v]] (even? k)))
+                     (map (fn [[k v]] [k (inc v)])))
+              (zipmap (range 10000) (range 10000))) 998)))))
 
 (deftest counting
   (testing "count a coll"
@@ -220,6 +239,13 @@
     (is (= :y    (p/or false :y true :x)))
     (is (= true  (p/or true false true)))
     (is (p/or (do (Thread/sleep 20) false) (do (Thread/sleep 10) true)))))
+
+  ; TODO: need fixing or docs. Shared coll needs to be concurrent.
+  ; (distinct (repeatedly 100 #(let* [G__3879 (new ArrayList)]
+  ;   (let* [G__3883 (clojure.core/future-call (fn* [] (. G__3879 add 1)))
+  ;          G__3884 (clojure.core/future-call (fn* [] (. G__3879 add 2)))]
+  ;     (let* [G__3880 (deref G__3883) G__3881 (deref G__3884)] G__3881))
+  ;   G__3879)))
 
 (deftest parallel-do-doto
   (testing "like do, but forms evaluated in parallel."
