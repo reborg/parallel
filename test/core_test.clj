@@ -182,7 +182,7 @@
     (let [c (to-array (range 100000))]
       (is (= (map inc (range 10)) (take 10 (p/amap inc c)))))))
 
-#_(deftest distinct-test
+(deftest distinct-test
   (let [c (shuffle (apply concat (take 5 (repeat (range 10000)))))]
     (testing "sanity"
       (is (= (sort (distinct c)) (sort (p/distinct c)))))
