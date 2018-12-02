@@ -1,11 +1,14 @@
 ## Release History
 
-### 0.7 (WIP)
+### 0.8 (WIP)
+
+### 0.7
 
 * Fix bug in `p/armap` for the sequential case.
 * Fixed missing laziness in external-sort
 * Added `p/do` and `p/doto`
 * Added `p/transduce`
+* Added `p/process-folder`
 
 ### 0.6
 
