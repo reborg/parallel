@@ -1,4 +1,4 @@
-(defproject parallel "0.7"
+(defproject parallel "0.8"
   :description "A library of parallel-enabled Clojure functions"
   :url "https://github.com/reborg/parallel"
   :license {:name "Eclipse Public License"
