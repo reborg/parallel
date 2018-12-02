@@ -1,5 +1,7 @@
 (ns core-test
-  (:import [clojure.lang RT] [java.io File] [java.util ArrayList])
+  (:import [clojure.lang RT]
+           [java.io File]
+           [java.util.concurrent ConcurrentLinkedQueue])
   (:require [parallel.core :as p]
             [clojure.core.reducers :as r]
             [clojure.test :refer :all]))
@@ -242,19 +244,14 @@
     (is (= true  (p/or true false true)))
     (is (p/or (do (Thread/sleep 20) false) (do (Thread/sleep 10) true)))))
 
-  ; TODO: need fixing or docs. Shared coll needs to be concurrent.
-  ; (distinct (repeatedly 100 #(let* [G__3879 (new ArrayList)]
-  ;   (let* [G__3883 (clojure.core/future-call (fn* [] (. G__3879 add 1)))
-  ;          G__3884 (clojure.core/future-call (fn* [] (. G__3879 add 2)))]
-  ;     (let* [G__3880 (deref G__3883) G__3881 (deref G__3884)] G__3881))
-  ;   G__3879)))
-
 (deftest parallel-do-doto
   (testing "like do, but forms evaluated in parallel."
     (is (= nil (p/do)))
     (is (= 1 (p/do 1)))
-    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2) (vec a)))))
-    (is (= [1 2] (let [a (ArrayList.)] (p/do (.add a 1) (.add a 2)) (vec a)))))
+    (is (= #{[1 2] [2 1]}
+           (set (repeatedly 50
+             #(let [a (ConcurrentLinkedQueue.)]
+                (p/do (.add a 1) (.add a 2)) (vec a)))))))
   (testing "like doto, but forms evaluated in parallel."
     (is (= 1 (p/doto 1)))
-    (is (= [1 2] (vec (p/doto (ArrayList.) (.add 1) (.add 2)))))))
+    (is (= [1 2] (vec (p/doto (ConcurrentLinkedQueue.) (.add 1) (.add 2)))))))
