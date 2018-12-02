@@ -20,6 +20,7 @@ Functions and macros:
 | [`p/external-sort`](#pexternal-sort)    | Memory efficient, file-based, parallel merge-sort.
 | [`p/fold`](#pfold-pxrf-and-pfolder)     | Transducer-aware `r/fold`.
 | [`p/transduce`](#ptransduce)            | Parallel version of `transduce` based on `p/fold`.
+| [`p/process-filder`](#pprocess-folder)  | Process the files in a folder in parallel.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
 | [`p/amap`](#pamap)                      | Parallel array transformation.
@@ -580,6 +581,21 @@ The equivalent operation attempted on `reducers/fold` would give inconsistent re
   (vec (range 1000)))
 ;; Sometimes ArrayOutOfBound, sometimes a bunch of random partitions.
 ```
+
+### `p/process-folder`
+
+`p/process-folder` applies a composition of transducers to all files in a folder in parallel. The first transducer in the pipeline should expect a line of text. You can use something like `split -l 10000 -a 4 <filename> segment-` to split a large files into many smaller ones of 10k lines each. After you move them in a folder (please be sure it contains only the files that need processing) you're good to go, for example:
+
+```clojure
+(p/process-folder
+  "folder-name-as-string"
+  (comp (map s/trim)
+        (remove s/blank?)
+        (map #(s/split % #"\,"))
+        (map peek)))
+```
+
+The snippet above takes the last value for each line of each CSV file in a folder. `p/process-folder` is eager: if the files are many or lines are big, there is nothing `p/process-folder` can do to avoid out of memory. Try to compose your transducers so they process and aggregate data as needed returning a result that can fit into memory.
 
 ### `p/min` and `p/max`
 

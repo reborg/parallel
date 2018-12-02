@@ -13,7 +13,7 @@
   (:import
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
-    [java.io File FileInputStream]
+    [java.io FileInputStream BufferedReader FileReader Reader StringReader File]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
@@ -486,3 +486,17 @@
                     `(~f ~target)))
                 forms))
        ~target)))
+
+(defn process-folder
+  "Applies xforms to all lines of all files inside folder. It supports
+  statful transducers, for example to skip the header (= line1) for each file."
+  [^String folder xforms]
+  (transduce
+    (comp
+      (mapcat (fn [^File f]
+                (with-open [br (BufferedReader. (FileReader. f))]
+                  (doall (line-seq br)))))
+      xforms)
+    (completing conj! persistent!)
+    (fn combinef ([] (transient [])) ([v1 v2] (into v1 v2)))
+    (into [] (rest (file-seq (java.io.File. folder))))))
