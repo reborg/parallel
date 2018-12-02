@@ -98,47 +98,53 @@ Don't use `p/let` if:
 ;; counter incremented more stuff to do0
 ```
 
-As demonstrated by the output, there is no guarantee about the order in which the form are evaluated, so the use of `p/do` should be restricted to side effecting forms without an ordering requirement.
+As demonstrated by the output, there is no guarantee about the order in which the forms are evaluated, so the use of `p/do` should be restricted to side effecting forms without an ordering requirement.
 
 ### `p/doto`
 
-Similarly to `core/doto`, `p/doto` threads an expression into the following forms (presumably for side effects) and then returns the same expression at the end. Threading through forms happens in parallel:
+Similarly to `core/doto`, `p/doto` threads an expression into the following forms (presumably for side effects) and returns the initial expression at the end. Threading through forms happens in parallel so:
+
+* Side effects can happen in any order (the forms following the threaded expression).
+* If side effects are against a shared collection, the collection has to be thread safe (or one of the Clojure ref types).
+
+The following example uses a `ConcurrentLinkedQueue` to add items concurrently:
 
 ```clojure
-(import 'java.util.ArrayList)
+(import 'java.util.concurrent.ConcurrentLinkedQueue)
 
 (p/doto
-  (ArrayList.)
+  (ConcurrentLinkedQueue.)
   (.add 1)
   (.add 2))
-;; [1 2]
+
+;; #object[java.util.concurrent.ConcurrentLinkedQueue 0x5fbc5177 "[1, 2]"]
 ```
 
-Like other parallel macros, `p/doto` evaluates form in an unspecified order and it's effective when the performed operations are not trivial. The following expression, for example, executes in 1/4 of the time:
+Like other parallel macros, `p/doto` it's effective when the performed operations are not trivial. The following expression, for example, executes in 1/4 of the time:
 
 ```clojure
 (require '[clojure.xml :as xml])
-(import 'java.util.HashMap)
+(import 'java.util.concurrent.ConcurrentHashMap)
 
-(def feeds (HashMap.))
+(defn heavy-stuff [n] (Thread/sleep 1000) n)
 
 (time
-  (def feeds
-    (doto (HashMap.)
-      (.put :a (Thread/sleep 1000))
-      (.put :b (Thread/sleep 1000))
-      (.put :c (Thread/sleep 1000))
-      (.put :d (Thread/sleep 1000)))))
+  (doto (ConcurrentHashMap.)
+    (.put :a (heavy-stuff 1))
+    (.put :b (heavy-stuff 2))
+    (.put :c (heavy-stuff 3))
+    (.put :d (heavy-stuff 4))))
 ;; "Elapsed time: 4009.656834 msecs"
+;; {:d 4, :b 2, :c 3, :a 1}
 
 (time
-  (def feeds
-    (p/doto (HashMap.)
-      (.put :a (Thread/sleep 1000))
-      (.put :b (Thread/sleep 1000))
-      (.put :c (Thread/sleep 1000))
-      (.put :d (Thread/sleep 1000)))))
+  (p/doto (ConcurrentHashMap.)
+    (.put :a (heavy-stuff 1))
+    (.put :b (heavy-stuff 2))
+    (.put :c (heavy-stuff 3))
+    (.put :d (heavy-stuff 4))))
 ;; "Elapsed time: 1006.563343 msecs"
+;; {:d 4, :b 2, :c 3, :a 1}
 ```
 
 ### `p/slurp`
