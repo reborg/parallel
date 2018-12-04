@@ -10,7 +10,7 @@ Functions and macros:
 |-----------------------------------------| ---------------------------------------------------
 | [`p/let`](#plet)                        | Parallel `let` bindings.
 | [`p/do`](#pdo)                          | Parallel `do` forms.
-| [`p/doto`](#pdoto)                      | Parallel `do` forms.
+| [`p/doto`](#pdoto)                      | Parallel `doto` forms.
 | [`p/slurp`](#pslurp)                    | Parallel slurping files.
 | [`p/count`](#pcount)                    | Transducer-aware parallel `core/count`.
 | [`p/frequencies`](#pfrequencies)        | Parallel `core/frequencies`
@@ -234,14 +234,13 @@ Like `core/frequencies`, but executes in parallel. It takes an optional composit
 (def war-and-peace "http://www.gutenberg.org/files/2600/2600-0.txt")
 (def book (slurp war-and-peace))
 (let [freqs (p/frequencies
-              (comp
-                (re-seq #"\S+" book)
-                (map s/lower-case)))]
+              (re-seq #"\S+" book)
+              (map s/lower-case))]
   (take 5 (sort-by last > freqs)))
 ;; (["the" 34258] ["and" 21396] ["to" 16500] ["of" 14904] ["a" 10388])
 
-(quick-bench (p/frequencies (re-seq #"\S+" book) (map s/lower-case))) ;; 165ms
-(quick-bench (frequencies (map s/lower-case (re-seq #"\S+" book)))) ;; 394ms
+(quick-bench (p/frequencies (re-seq #"\S+" book) (map s/lower-case))) ;; 111ms
+(quick-bench (frequencies (map s/lower-case (re-seq #"\S+" book)))) ;; 349ms
 ```
 
 ### `p/group-by`
