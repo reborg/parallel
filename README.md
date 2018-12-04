@@ -227,15 +227,16 @@ See [bcount.clj](https://github.com/reborg/parallel/blob/master/benchmarks/bcoun
 
 ### `p/frequencies`
 
-Like `core/frequencies`, but executes in parallel. It takes an optional list of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values. The following is the typical word frequencies example:
+Like `core/frequencies`, but executes in parallel. It takes an optional composition of transducers (stateless or stateful) to apply to coll before the frequency is calculated. It does not support nil values. The following is the typical word frequencies example:
 
 ```clojure
 (require '[clojure.string :as s])
 (def war-and-peace "http://www.gutenberg.org/files/2600/2600-0.txt")
 (def book (slurp war-and-peace))
 (let [freqs (p/frequencies
-              (re-seq #"\S+" book)
-              (map s/lower-case))]
+              (comp
+                (re-seq #"\S+" book)
+                (map s/lower-case)))]
   (take 5 (sort-by last > freqs)))
 ;; (["the" 34258] ["and" 21396] ["to" 16500] ["of" 14904] ["a" 10388])
 

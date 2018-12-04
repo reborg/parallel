@@ -14,6 +14,7 @@
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
     [java.io FileInputStream BufferedReader FileReader Reader StringReader File]
+    [java.nio.file Files]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
     [java.util HashMap Collections Queue Map]))
@@ -204,21 +205,6 @@
                m))]
     (fold combinef (apply xrf (completing rf) xforms) coll)
     (if *mutable* m (persistent! (reduce-kv (fn [m k v] (assoc! m k (vec v))) (transient {}) m)))))
-
-(defn frequencies
-  "Like clojure.core/frequencies, but executes in parallel.
-  It takes an optional list of transducers to apply to coll before
-  the frequency is calculated. It does not support nil values."
-  [coll & xforms]
-  (c/let [coll (if (foldable? coll) coll (into [] coll))
-        m (ConcurrentHashMap. (quot (c/count coll) 2) 0.75 ncpu)
-        combinef (fn ([] m) ([_ _]))
-        rf (fn [^Map m k]
-             (c/let [^AtomicInteger v (c/or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
-               (when v (.incrementAndGet v))
-               m))]
-    (fold combinef (apply xrf (completing rf) xforms) coll)
-    (if *mutable* m (into {} m))))
 
 (defn update-vals
   "Use f to update the values of a map in parallel. It performs well
@@ -489,14 +475,55 @@
 
 (defn process-folder
   "Applies xforms to all lines of all files inside folder. It supports
-  statful transducers, for example to skip the header (= line1) for each file."
-  [^String folder xforms]
-  (transduce
-    (comp
-      (mapcat (fn [^File f]
-                (with-open [br (BufferedReader. (FileReader. f))]
-                  (doall (line-seq br)))))
-      xforms)
-    (completing conj! persistent!)
-    (fn combinef ([] (transient [])) ([v1 v2] (into v1 v2)))
-    (into [] (rest (file-seq (java.io.File. folder))))))
+  statful transducers (for example, to skip the header, group stuff, etc.)
+  By default it produces a vector of results, but you can pass a different
+  reducef+combinef to use different data structures."
+  ([^String folder xforms]
+   (process-folder
+     folder
+     (completing conj! persistent!)
+     (r/monoid into conj!)
+     xforms))
+  ([^String folder reducef combinef xforms]
+   (transduce
+     (comp
+       (mapcat #(Files/readAllLines (.toPath %)))
+       xforms)
+     reducef
+     combinef
+     (into [] (rest (file-seq (java.io.File. folder)))))))
+
+(defn- transducing
+  "Prepare input for transducing, making some considerate assumptions
+  about the type. A folder is considered a group of file containing lines."
+  [input]
+  (cond
+    (foldable? input) input
+    (and (instance? File input) (.isDirectory input)) (into [] (rest (file-seq input)))
+    (instance? File input) (Files/readAllLines (.toPath input))
+    :else (into [] input)))
+
+(defn frequencies
+  "Like clojure.core/frequencies, but executes in parallel.
+  It takes an optional list of transducers to apply to coll before
+  the frequency is calculated. It does not support nil values."
+  ([input]
+   (frequencies input identity))
+  ([input custom-xforms]
+   (frequencies input custom-xforms identity))
+  ([input custom-xforms keyfn]
+   (c/let [folder? (and (instance? File input) (.isDirectory input))
+           xforms (if folder?
+                    (comp (mapcat #(Files/readAllLines (.toPath %))) custom-xforms)
+                    custom-xforms)
+           reducef (completing
+                     (fn [^Map m item]
+                       (c/let [k (keyfn item)
+                               ^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+                         (when v (.incrementAndGet v))
+                         m))
+                     identity)
+           m (ConcurrentHashMap.)
+           combinef (fn ([] m) ([_ _] m))]
+     (transduce xforms reducef combinef (transducing input))
+     (if *mutable* m (into {} m)))))
