@@ -27,37 +27,3 @@ cd ..
 ```
 
 The instructions above also creates `small.tsv` samples of only 1k lines for quick experiments.
-
-### Example analysis
-
-* Top-artists
-
-        cut -f 2,3 usersha1-artmbid-artname-plays.tsv | sort -T . | uniq -c | sort -rn > artists.freq
-
-* Top-artists in Mexico:
-
-        join -t'\t' usersha1-profile.tsv usersha1-artmbid-artname-plays.tsv | grep "\tMexico\t" | cut -f 6,7 | sort | uniq -c | sort -rn > artists-mexico.freq
-
-* Users that have played The Dogs d'Amour
-
-        grep "the dogs d'amour" usersha1-artmbid-artname-plays.tsv | cut -f 1 | uniq -c -i | wc -l
-
-* Total playcounts for The Dogs d'Amour
-
-        grep "the dogs d'amour" usersha1-artmbid-artname-plays.tsv  | cut -f 4 | awk '{s+=$1} END {print s}'
-
-* Plays for user edb46e3e7f368a380bdeadf611585a98cab19704
-
-        grep edb46e3e7f368a380bdeadf611585a98cab19704 usersha1-artmbid-artname-plays.tsv | cut -f 4 | awk '{s+=$1} END {print s}'
-
-* Where do users come from?
-
-        cut -f 4 usersha1-profile.tsv | sort | uniq -c | sort -rn > user-countries.freq
-
-* When did they signup?
-
-        cut -f 5 usersha1-profile.tsv | cut -d, -f 2 | sort | uniq -c | sort -rn
-
-* How old are you?
-
-        cut -f 3 usersha1-profile.tsv | sort | uniq -c | sort -rn > user-age.freq
