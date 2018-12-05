@@ -87,11 +87,12 @@
 
 (defn most-played-band-by-day
   [fname]
-  (let [keyfn (fn [item]
-                (let [[_ ts _ band] item]
-                  [(nth (s/split ts #"T") 0) band]))]
+  (let [xform (comp
+                clean-xform
+                (map (fn [[_ ts _ band]]
+                       [(nth (s/split ts #"T") 0) band])))]
     (->>
-      (p/frequencies (File. fname) clean-xform keyfn)
+      (p/frequencies (File. fname) xform)
       (sort-by #(nth % 1) >)
       ; Shall we add a “p/”?
       ; (p/sort #(compare (nth %2 1) (nth %2 1)))

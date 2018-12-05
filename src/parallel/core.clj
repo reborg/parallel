@@ -461,8 +461,9 @@
      (into [] (rest (file-seq (java.io.File. folder)))))))
 
 (defn- transducing
-  "Prepare input for transducing, making some considerate assumptions
-  about the type. A folder is considered a group of file containing lines."
+  "Prepare the input for transducing, making some assumptions
+  about the type. A folder is considered a group of files
+  containing lines."
   [input]
   (cond
     (foldable? input) input
@@ -472,21 +473,18 @@
 
 (defn frequencies
   "Like clojure.core/frequencies, but executes in parallel.
-  It takes an optional list of transducers to apply to coll before
-  the frequency is calculated. It does not support nil values."
+  It takes an optional comp of transducers to apply to coll before
+  the frequency is calculated."
   ([input]
    (frequencies input identity))
   ([input custom-xforms]
-   (frequencies input custom-xforms identity))
-  ([input custom-xforms keyfn]
    (c/let [folder? (and (instance? File input) (.isDirectory input))
            xforms (if folder?
                     (comp (mapcat #(Files/readAllLines (.toPath %))) custom-xforms)
                     custom-xforms)
            reducef (completing
-                     (fn [^Map m item]
-                       (c/let [k (keyfn item)
-                               ^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+                     (fn [^Map m k]
+                       (c/let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                          (when v (.incrementAndGet v))
                          m))
                      identity)

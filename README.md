@@ -46,7 +46,7 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.7"]
+[parallel "0.8"]
 ```
 
 Require at the REPL with:
@@ -231,9 +231,7 @@ Like `core/frequencies`, but executes in parallel. It takes an optional composit
 (require '[clojure.string :as s])
 (def war-and-peace "http://www.gutenberg.org/files/2600/2600-0.txt")
 (def book (slurp war-and-peace))
-(let [freqs (p/frequencies
-              (re-seq #"\S+" book)
-              (map s/lower-case))]
+(let [freqs (p/frequencies (re-seq #"\S+" book) (map s/lower-case))]
   (take 5 (sort-by last > freqs)))
 ;; (["the" 34258] ["and" 21396] ["to" 16500] ["of" 14904] ["a" 10388])
 
