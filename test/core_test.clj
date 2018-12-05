@@ -253,7 +253,7 @@
 
 (deftest parallel-do-doto
 
-  (testing "like do, but forms evaluated in parallel."
+  (testing "like do, but forms evaluate in parallel."
     (is (= nil (p/do)))
     (is (= 1 (p/do 1)))
     (is (some #{[1 2] [2 1]}

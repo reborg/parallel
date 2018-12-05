@@ -1,6 +1,13 @@
 ## Release History
 
-### 0.8 (WIP)
+### 0.9 (WIP)
+
+* `p/frequencies` does not need a special keyfn.
+
+### 0.8
+
+* Using `p/transduce` to implement frequencies.
+* Added ./examples
 
 ### 0.7
 
