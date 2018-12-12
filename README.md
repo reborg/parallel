@@ -9,6 +9,9 @@ Functions and macros:
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
 | [`p/let`](#plet)                        | Parallel `let` bindings.
+| [`p/args`](#pargs)                      | Invoke a function with arguments evaluated in parallel.
+| [`p/and`](#pand)                        | Like `core/and` with expressions evaluated in parallel.
+| [`p/or`](#por)                          | Like `core/or` with arguments evaluated in parallel.
 | [`p/do`](#pdo)                          | Parallel `do` forms.
 | [`p/doto`](#pdoto)                      | Parallel `doto` forms.
 | [`p/slurp`](#pslurp)                    | Parallel slurping files.
@@ -34,22 +37,19 @@ Transducers:
 | [`xf/interleave`](#xfinterleave)        | Like `core/interleave`, transducer version.
 | [`xf/pmap`](#xfpmap)                    | Like `core/pmap`, transducer version.
 | [`xf/identity`](#xfidentity)            | Alternative identity transducer to `core/identity`
-| [`p/args`](#pargs)                      | Invoke a function with arguments first evaluated in parallel.
-| [`p/and`](#pand)                        | Invoke `or` with arguments first evaluated in parallel.
-| [`p/or`](#por)                          | Invoke `and` with arguments first evaluated in parallel.
 
 In the pipeline:
 
 | Name                                    | Description
 |-----------------------------------------| ---------------------------------------------------
-| `p/split-by`                            | Splitting transducer based on contiguous elements. 
+| `p/split-by`                            | Splitting transducer based on contiguous elements.
 
 ### How to use the library
 
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.8"]
+[parallel "0.9"]
 ```
 
 Require at the REPL with:
@@ -73,7 +73,7 @@ Or in your namespace as:
 
 `p/let` works like `clojure.core/let` but evaluates its binding expressions in parallel:
 
-```clj
+```clojure
 (time
   (p/let [a (Thread/sleep 1000)
           b (Thread/sleep 1000)
@@ -86,6 +86,94 @@ Don't use `p/let` if:
 
 * The expressions have dependencies. `p/let` cannot resolve cross references between expressions and will throw exception.
 * The expressions are trivial. In this case the thread orchestration outweighs the benefits of executing in parallel. Good expressions to parallelize are for example independent networked API calls, file system calls or other non trivial computations.
+
+### `p/args`
+
+`p/args` calls a function with arguments that are evaluated in parallel:
+
+```clojure
+(time
+  (p/args +
+    (do (Thread/sleep 1000) 1)
+    (do (Thread/sleep 1000) 2)
+    (do (Thread/sleep 1000) 3)))
+;; "Elapsed time: 1000.613791 msecs"
+;; 6
+```
+
+`p/args` improve performances when the argument to a function requires some kind of non trivial evaluation, for example if they have side effects requiring input/output. Restrictions to the use of `p/args` include any dependency between the arguments (which can happen as a side effect of their evaluation).
+
+### `p/and`
+
+`p/and` works similarly to `core/and` but the expressions in the body are evaluated in parallel:
+
+```clojure
+(let [x 11]
+  (if (p/and
+        (odd? x)
+        (number? x)
+        (even? (count (str x))))
+    "true"
+    "false"))
+;; true
+```
+
+There are a couple of important differences to consider:
+
+* Differently from `core/and`, `p/and` does not short-circuit. This means that even if the first expression is false, `p/and` is going to evaluate all other expressions. `p/and` could results in worse performances if the first expression is most certainly false and it evaluates faster than the others:
+
+```clojure
+(time (let [x 11]
+  (if (and
+        (do (Thread/sleep 100) (even? x))
+        (do (Thread/sleep 1000) (number? x))
+        (do (Thread/sleep 1000) (even? (count (str x)))))
+    "true"
+    "false")))
+;; "Elapsed time: 104.481973 msecs"
+;; false
+
+(time (let [x 11]
+  (if (p/and
+        (do (Thread/sleep 100) (even? x))
+        (do (Thread/sleep 1000) (number? x))
+        (do (Thread/sleep 1000) (even? (count (str x)))))
+    "true"
+    "false")))
+;; "Elapsed time: 1001.878881 msecs"
+;; false
+```
+
+* You should not rely on evaluation order of the expressions. The following idiomatic use of `core/and` for instance, might not work with `p/and`:
+
+```clojure
+(require '[clojure.java.io :as io])
+
+(def file 1)
+
+(p/and
+  (instance? java.io.File file)
+  (.exists file)
+  (.isDirectory file))
+;; IllegalArgumentException No matching field found: exists for class java.lang.Long
+```
+
+### `p/or`
+
+`p/or` works similarly to `core/or` but the expressions in the body are evaluated in parallel:
+
+```clojure
+(let [x 11]
+  (if (p/or
+        (odd? x)
+        (string? x)
+        (double? x))
+    "true"
+    "false"))
+;; true
+```
+
+Like `p/and`, `p/or` it does not short-circuit, potentially taking more time than sequential `core/or`. This happens for example when the first expression is true but `p/or` cannot return until all other expressions are evaluated. Also similarly to `p/and`, `p/or` should not be used if there is an implicit order between expressions (for example `(let [string-length (p/or s (.length s))] string-length)` might result in `NullPointerException` if `s` is `nil`.
 
 ### `p/do`
 
@@ -762,36 +850,6 @@ As you can see the output is a vector of results in any order. Additionally `p/p
 ```
 
 You can optionally pass in a "threshold" which indicates how small the chunk of computation should be before going sequential, otherwise the number is chosen to be `(/ alength (* 2 ncores))`.
-
-### `p/args`
-
-Macro that calls a function `fx` with arguments `& args` first
-evaluated in parallel:
-
-```clj
-(p/args + 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                          (+ @a @b @c))
-```
-
-### `p/and`
-
-Macro that calls `and` with arguments `& args` first evaluated in
-parallel:
-
-```clj
-(p/and 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                   (and @a @b @c))
-```
-
-### `p/or`
-
-Macro that calls `or` with arguments `& args` first evaluated in
-parallel:
-
-```clj
-(p/or 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                  (or @a @b @c))
-```
 
 ### `xf/interleave`
 

@@ -1,9 +1,12 @@
 ## Release History
 
-### 0.9 (WIP)
+### 0.10 (WIP)
+
+### 0.9
 
 * `p/frequencies` does not need a special keyfn.
 * Added `p/pmap`
+* Added `p/args`, `p/or` and `p/and`.
 
 ### 0.8
 

@@ -420,33 +420,26 @@
          ~@body))))
 
 (defmacro args
-  "Call the function with each argument first being evaluated in
-   parralel
-   Example psuedo-expansion:
-    (p/args + 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                          (+ @a @b @c))"
-  [fx & args]
+  "Call f with each argument evaluated in parralel.
+  This is roughly equivalent to the expansion:
+  (p/args + 1 2 3) =>
+  (let [a (future 1) b (future 2) c (future 3)] (+ @a @b @c))"
+  [f & args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(c/let ~(vec (interleave ts (map #(list 'future %) args)))
-       (~fx ~@(map #(list 'deref %) ts)))))
+       (~f ~@(map #(list 'deref %) ts)))))
 
 (defmacro or
-  "Calls `or` with each argument first being evaluated in
-   parralel.
-   Example psuedo-expansion:
-    (p/or 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                      (p/or @a @b @c))"
+  "Like `core/or` but each expression is evaluated in parralel.
+  It does not short-circuit."
   [& args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(let ~(vec (interleave ts (map #(list 'future %) args)))
        (reduce #(c/or %1 %2) nil  ~(vec (map #(list 'deref %) ts))))))
 
 (defmacro and
-  "Calls `and` with each argument first being evaluated in
-   parralel.
-   Example psuedo-expansion:
-    (p/and 1 2 3) => (let[a (future 1) b (future 2) c (future 3)]
-                       (and @a @b @c))"
+  "Like `core/and` but each expression is evaluated in parralel.
+  It does not short-circuit."
   [& args]
   (c/let [ts (take (c/count args) (repeatedly gensym))]
     `(let ~(vec (interleave ts (map #(list 'future %) args)))
@@ -500,7 +493,7 @@
   [input]
   (cond
     (foldable? input) input
-    (and (instance? File input) (.isDirectory input)) (into [] (rest (file-seq input)))
+    (c/and (instance? File input) (.isDirectory input)) (into [] (rest (file-seq input)))
     (instance? File input) (Files/readAllLines (.toPath input))
     :else (into [] input)))
 
@@ -511,13 +504,13 @@
   ([input]
    (frequencies input identity))
   ([input custom-xforms]
-   (c/let [folder? (and (instance? File input) (.isDirectory input))
+   (c/let [folder? (c/and (instance? File input) (.isDirectory input))
            xforms (if folder?
                     (comp (mapcat #(Files/readAllLines (.toPath %))) custom-xforms)
                     custom-xforms)
            reducef (completing
                      (fn [^Map m k]
-                       (c/let [^AtomicInteger v (or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
+                       (c/let [^AtomicInteger v (c/or (.get m k) (.putIfAbsent m k (AtomicInteger. 1)))]
                          (when v (.incrementAndGet v))
                          m))
                      identity)
@@ -532,7 +525,7 @@
   of cores."
   [f input & [n]]
   (c/let [q (ConcurrentLinkedQueue. input)
-          n (or n 100)
+          n (c/or n 100)
           workers (repeatedly #(future (when-let [item (.poll q)] (f item))))]
     (loop [workers workers res []]
       (c/let [res (into res (keep deref (doall (take n workers))))]
