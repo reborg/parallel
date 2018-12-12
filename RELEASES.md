@@ -3,6 +3,7 @@
 ### 0.9 (WIP)
 
 * `p/frequencies` does not need a special keyfn.
+* Added `p/pmap`
 
 ### 0.8
 

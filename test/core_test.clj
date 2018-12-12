@@ -264,3 +264,7 @@
   (testing "like doto, but forms evaluated in parallel."
     (is (= 1 (p/doto 1)))
     (is (= [1 2] (vec (p/doto (ConcurrentLinkedQueue.) (.add 1) (.add 2)))))))
+
+(deftest pmap-test
+  (testing "like pmap but results are not ordered"
+    (is (= (set (range 1 1001)) (set (p/pmap inc (range 1000)))))))

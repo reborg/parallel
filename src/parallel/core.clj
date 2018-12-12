@@ -1,5 +1,5 @@
 (ns parallel.core
-  (:refer-clojure :exclude [eduction sequence transduce
+  (:refer-clojure :exclude [eduction sequence transduce pmap
                             frequencies let slurp do doto and or
                             count group-by sort min max amap distinct])
   (:require [parallel.foldmap :as fmap]
@@ -525,3 +525,18 @@
            combinef (fn ([] m) ([_ _] m))]
      (transduce xforms reducef combinef (transducing input))
      (if *mutable* m (into {} m)))))
+
+(defn pmap
+  "Like pmap but eager and unordered. It runs n parallel threads
+  (default 100) independently from the chunk size or the number
+  of cores."
+  [f input & [n]]
+  (c/let [q (ConcurrentLinkedQueue. input)
+        n (or n 100)
+        workers (repeatedly #(future (when-let [item (.poll q)] (f item))))]
+    (loop [workers workers res []]
+      (c/let [next-batch (mapv deref (doall (take n workers)))
+            res (into res next-batch)]
+        (if (.isEmpty q)
+          (remove nil? res)
+          (recur (drop n workers) res))))))

@@ -23,6 +23,7 @@ Functions and macros:
 | [`p/process-folder`](#pprocess-folder)  | Process the files in a folder in parallel.
 | [`p/min` and `p/max`](#pmin-and-pmax)   | Parallel `core/min` and `core/max` functions.
 | [`p/distinct`](#pdistinct)   					  | Parallel version of `core/distinct`
+| [`p/pmap`](#ppmap)                      | Like `core/pmap` but running on given n of threads.
 | [`p/amap`](#pamap)                      | Parallel array transformation.
 | [`p/armap`](#parmap)                    | Parallel array reversal with transformation.
 
@@ -677,6 +678,30 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 (let [large (into [] (apply concat (repeat 200 (range 10000))))]
   (quick-bench (binding [p/*mutable* true] (p/distinct large))))
 ;; Execution time mean : 37.703288 ms
+```
+
+### `p/pmap`
+
+`p/pmap` has a similar interface as `core/pmap`:
+
+```clojure
+(p/pmap inc (range 10))
+;; (1 3 2 6 4 5 7 8 10 9)
+```
+
+As you can see the output can return in any order. Additionally `p/pmap` differs from `core/pmap` in the following:
+
+* It executes on n parallel threads (default 100) independently from the input collection chunk size or the number of available cores.
+* It is not lazy.
+* It does not support multiple collections as input.
+
+`p/pmap` is useful when you want to control the amount of parallelism executing the same task over a collection of inputs. If you are making requests to a highly scalable service, for example, you could take advantage of the higher level of parallelism of `p/pmap` compared to `core/pmap` throwing 100 or more threads at the problem (instead of `core/pmap` which is bound to the chunk size 32, plus the number of cores, plus 2). To change the number of threads, you can use the optional "n" parameter, for example setting it to 200 threads:
+
+```clojure
+(time (count (p/pmap #(do (Thread/sleep 500) (inc %)) (range 1000) 200)))
+;; "Elapsed time: 2552.601996 msecs"
+(time (count (pmap  #(do (Thread/sleep 500) (inc %)) (range 1000))))
+;; "Elapsed time: 16115.643296 msecs"
 ```
 
 ### `p/amap`
