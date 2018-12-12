@@ -686,10 +686,10 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 
 ```clojure
 (p/pmap inc (range 10))
-;; (1 3 2 6 4 5 7 8 10 9)
+;; [1 3 2 6 4 5 7 8 10 9]
 ```
 
-As you can see the output can return in any order. Additionally `p/pmap` differs from `core/pmap` in the following:
+As you can see the output is a vector of results in any order. Additionally `p/pmap` differs from `core/pmap` in the following:
 
 * It executes on n parallel threads (default 100) independently from the input collection chunk size or the number of available cores.
 * It is not lazy.

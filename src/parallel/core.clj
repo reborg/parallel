@@ -535,8 +535,8 @@
         n (or n 100)
         workers (repeatedly #(future (when-let [item (.poll q)] (f item))))]
     (loop [workers workers res []]
-      (c/let [next-batch (mapv deref (doall (take n workers)))
+      (c/let [next-batch (keep deref (doall (take n workers)))
             res (into res next-batch)]
         (if (.isEmpty q)
-          (remove nil? res)
+          res
           (recur (drop n workers) res))))))
