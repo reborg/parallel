@@ -1,10 +1,12 @@
 (ns core-test
   (:import [clojure.lang RT]
-           [java.io File]
+           [java.io File FileInputStream BufferedInputStream ByteArrayInputStream]
            [java.util.concurrent ConcurrentLinkedQueue])
   (:require [parallel.core :as p]
+            [clojure.java.io :as io]
             [clojure.core.reducers :as r]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [clojure.data :refer [diff]]))
 
 (deftest frequencies-test
   (testing "frequencies with xform"
@@ -241,3 +243,37 @@
   (testing "like doto, but forms evaluated in parallel."
     (is (= 1 (p/doto 1)))
     (is (= [1 2] (vec (p/doto (ConcurrentLinkedQueue.) (.add 1) (.add 2)))))))
+
+
+
+; Line Chunking
+; hfkjsh skjdh\nabcdefghil\nhakjhdk ksjsh\nskjshd kjshddkjshk\EOF
+; 0123456789012.34567890123.45678901234567.8901234567890123456
+; 0         10         20         30         40        50
+(deftest reading-lines
+  (let [bs (.getBytes "hfkjsh skjdh\nabcdefghil\nhakjhdk ksjsh\nskjshd kjshddkjshk")
+        bis #(BufferedInputStream. (ByteArrayInputStream. %))]
+    (testing "line-seq-at"
+      (is (= ["hfkjsh skjdh" "abcdefghil"] (p/line-seq-at (bis bs) (count bs) 0 20)))
+      (is (= ["hakjhdk ksjsh" "skjshd kjshddkjshk"] (p/line-seq-at (bis bs) (count bs) 20 40)))
+      (is (= nil (p/line-seq-at (bis bs) (count bs) 40 50)))
+      )
+    (testing "lines-at"
+      (is (= [0 "hfkjsh skjdh" "abcdefghil"] (p/lines-at (bis bs) (count bs) 0 20)))
+      (is (= [24 "hakjhdk ksjsh" "skjshd kjshddkjshk"] (p/lines-at (bis bs) (count bs) 20 40)))
+      (is (= [57] (p/lines-at (bis bs) (count bs) 40 50)))
+      (is (= [0 "A"] (p/lines-at (bis (.getBytes "A\n")) (count bs) 0 50)))
+      (is (= [0 "A" ""] (p/lines-at (bis (.getBytes "A\n\n")) (count bs) 0 50)))
+      (is (= "bipupillate" (last (p/lines-at (BufferedInputStream. (FileInputStream. "test/words")) (.length (io/file "test/words")) 221628 233724))))
+      )
+    (testing "read-lines"
+      (let [words (sort (line-seq (io/reader (io/file "test/words"))))]
+        (is (= (sort words) (sort (p/read-lines (io/file "test/words")))))
+        ))
+    )
+  )
+
+; (require '[parallel.core :as p] :reload)
+; (require '[clojure.java.io :as io])
+; (time (last (p/read-lines (io/file "/Users/reborg/prj/my/parallel/examples/lastfm/data/lastfm-dataset-360K/usersha1-profile.tsv") count)))
+; (time (count (p/read-lines (io/file "test/words"))))

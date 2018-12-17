@@ -9,15 +9,16 @@
             [clojure.core.reducers :as r]
             [clojure.core.protocols :as p]
             [clojure.java.io :as io]
+            [clojure.string :as s]
             [clojure.core :as c])
   (:import
     [parallel.merge_sort MergeSort]
     [parallel.map_combine MapCombine]
-    [java.io FileInputStream BufferedReader FileReader Reader StringReader File]
+    [java.io BufferedReader FileInputStream File BufferedInputStream]
     [java.nio.file Files]
     [java.util.concurrent.atomic AtomicInteger AtomicLong]
     [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
-    [java.util HashMap Collections Queue Map]))
+    [java.util HashMap Collection Collections Queue Map ArrayList]))
 
 (def ^:const ncpu (.availableProcessors (Runtime/getRuntime)))
 
@@ -251,7 +252,7 @@
    (c/let [size (.length file)
            threshold (quot size (* 4 ncpu))
            a (byte-array size)]
-     (mcombine/map
+  (mcombine/map
        (fn read-chunk [low high]
          (c/let [fis (FileInputStream. file)]
            (try
@@ -492,3 +493,97 @@
            combinef (fn ([] m) ([_ _] m))]
      (transduce xforms reducef combinef (transducing input))
      (if *mutable* m (into {} m)))))
+
+(defn look-ahead
+  "Search the position of next 'sep' in 'bis' starting at current
+  position or 'offset' if given. 'limit' is an indication of how many
+  bytes are expected to be read after marking the buffer. Buffer
+  position is restored before returning the position of next 'sep'."
+  [^BufferedInputStream bis sep limit & [offset]]
+  (c/let [mark (.mark bis limit)
+          jump (.read bis (byte-array (or offset 0)))]
+    (loop [b (.read bis) cnt 0]
+      (if (or (== -1 b) (== sep b))
+        (do (.reset bis) cnt)
+        (recur (.read bis) (inc cnt))))))
+
+(defn line-seq-at
+  "Reads lines lazily from an input stream of size 'l' starting at
+  'from' and ending at 'to'. If a line separator is not found at
+  'from' or 'to', it skips ahead to find the next one (or EOF).
+  The caller is responsible for closing the stream once done.
+  Note: this is not suitable for parallel use, as threads will
+  return to the pool before the lazy sequence has a chance to read
+  from the stream."
+  [^BufferedInputStream bis l from to & [sep]]
+  (c/let [sep (or sep (byte \newline))
+          size (- to from)
+          goto-from (.skip bis from)
+          from-cnt (if (zero? from) 0 (inc (look-ahead bis sep l)))
+          to-cnt (look-ahead bis sep l size)
+          limit (- (+ to to-cnt) (+ from from-cnt))
+          goto-sep (.skip bis from-cnt)
+          step (fn step [^BufferedReader rdr cnt]
+                 (when-let [^String line (.readLine rdr)]
+                   (c/let [pos (+ cnt (.length line))]
+                     (when (<= pos limit)
+                       (cons line (lazy-seq (step rdr pos)))))))]
+    (step (io/reader bis) 0)))
+
+(defn lines-at
+  "Reads lines (eagerly) from an input stream of size 'l' starting at
+  'from' and ending at 'to'. If a line separator is not found at
+  'from' or 'to', it skips ahead to find the next one (or EOF).
+  The first item in the output is the distance of the first line
+  from the beginning of the stream (in bytes). This is useful to rebuild
+  the original order when lines are retrieved in parallel.
+  If *mutable*, returns an ArrayList, a vector otherwise."
+  ([^BufferedInputStream bis l from to]
+   (lines-at bis l from to identity))
+  ([^BufferedInputStream bis l from to f & [sep]]
+   {:pre [(< from to)]}
+   (c/let [sep (or sep (byte \newline))
+           size (- to from)
+           goto-from (.skip bis from)
+           from-cnt (if (zero? from) 0 (inc (look-ahead bis sep l)))
+           to-cnt (look-ahead bis sep l size)
+           sep-from (+ from from-cnt)
+           sep-size (- (+ to to-cnt) sep-from)
+           buf (byte-array (if (neg? sep-size) 0 (c/min sep-size (.available bis))))
+           goto-sep (.skip bis from-cnt)
+           cnt (.read bis buf)]
+     (if (<= cnt 0)
+       (let [^Collection init [sep-from]]
+         (if *mutable* (ArrayList. init) init))
+       (loop [^BufferedReader rdr (io/reader buf)
+              lines (doto (ArrayList.) (.add sep-from))]
+         (if-let [line (.readLine rdr)]
+           (recur rdr (doto lines (.add (f line))))
+           (do
+             (if *mutable* lines (into [] lines)))))))))
+
+
+(defn read-lines
+  "Read lines from a file in parallel. It takes an optional
+  transformation 'f' to apply to each line."
+  ([file]
+   (read-lines file identity))
+  ([^File file f]
+   (c/let [size (.length file)
+           threshold (quot size (* 128 ncpu))
+           lines (mcombine/map
+                   (fn read-chunk [from to]
+                     (c/let [bis (BufferedInputStream. (FileInputStream. file))]
+                       (try
+                         (binding [*mutable* true]
+                           (lines-at bis size from to f))
+                         (finally (.close bis)))))
+                   (fn [^ArrayList a1 ^ArrayList a2]
+                     (let [h1 (.get a1 0)
+                           h2 (.get a2 0)]
+                       (doto
+                         (if (int? h1) (doto a1 (.remove h1)) a1)
+                         (.addAll
+                           (if (int? h2) (doto a2 (.remove h2)) a2)))))
+                   threshold size)]
+     (if *mutable* lines (into [] lines)))))
