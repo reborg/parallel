@@ -4,8 +4,6 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0"]]
-  ; :source-paths ["src" "playground" "benchmarks"]
-  :source-paths ["src" "benchmarks"]
   :java-source-paths ["java"]
   :uberjar-name "parallel.jar"
   :deploy-repositories [["releases" :clojars] ["snapshots" :clojars]]
