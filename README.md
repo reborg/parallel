@@ -49,7 +49,7 @@ In the pipeline:
 All functions are available through the `parallel.core` namespace. Pure transducers are in `parallel.xf`.  Add the following to your project dependencies:
 
 ```clojure
-[parallel "0.9"]
+[parallel "0.10"]
 ```
 
 Require at the REPL with:

@@ -1,6 +1,10 @@
 ## Release History
 
-### 0.10 (WIP)
+### 0.11 (WIP)
+
+### 0.10
+
+* Removed the benchmark ns from source paths causing trouble in the jar (thanks @benedekfazekas)
 
 ### 0.9
 
