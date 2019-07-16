@@ -777,18 +777,21 @@ You can additionally increase `p/distinct` speed by using a vector input and for
 ;; [1 3 2 6 4 5 7 8 10 9]
 ```
 
-As you can see the output is a vector of results in any order. Additionally `p/pmap` differs from `core/pmap` in the following:
+But as you can see the output is a vector of results in any order. Additionally `p/pmap` differs from `core/pmap` in the following:
 
 * It executes on n parallel threads (default 100) independently from the input collection chunk size or the number of available cores.
 * It is not lazy.
 * It does not support multiple collections as input.
 
-`p/pmap` is useful when you want to control the amount of parallelism executing the same task over a collection of inputs. If you are making requests to a highly scalable service, for example, you could take advantage of the higher level of parallelism of `p/pmap` compared to `core/pmap` throwing 100 or more threads at the problem (instead of `core/pmap` which is bound to the chunk size 32, plus the number of cores, plus 2). To change the number of threads, you can use the optional "n" parameter, for example setting it to 200 threads:
+`p/pmap` is useful when you want to control the amount of parallelism executing the same task over a collection of inputs. If you are making requests to a highly scalable service, for example, you could take advantage of the higher level of parallelism of `p/pmap` compared to `core/pmap` throwing up to 100 (or more) threads at the problem (instead of `core/pmap` which is bound to the chunk size 32, plus the number of cores, plus 2). To change the number of threads, you can use the optional "n" parameter, for example setting it to 200 threads. In the following example, up to 200 threads are working on "heavyf":
 
 ```clojure
-(time (count (p/pmap #(do (Thread/sleep 500) (inc %)) (range 1000) 200)))
+(defn heavyf [x] (Thread/sleep 500) (inc x))
+
+(time (count (p/pmap heavyf (range 1000) 200)))
 ;; "Elapsed time: 2552.601996 msecs"
-(time (count (pmap  #(do (Thread/sleep 500) (inc %)) (range 1000))))
+
+(time (count (pmap heavyf (range 1000))))
 ;; "Elapsed time: 16115.643296 msecs"
 ```
 
@@ -881,7 +884,7 @@ The main transducing process runs until there are items in the filler sequence (
 
 ### `xf/pmap`
 
-`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like `core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `core/map`, `xf/pmap` processes a fixed number of 32 items in parallel (competing for the actual number of physical cores):
+`xf/pmap` is a transducer version of `core/pmap`. When added to a transducer chain, it works like the `colojure.core/map` transducer applying the function "f" to all the items passing through the transducer. Different from `clojure.core/map`, `xf/pmap` processes a fixed number items in parallel (competing for the actual number of physical cores). So if you have 12 cores and you're transducing a Clojure collection (big majority of them have a chunk size of 32), then you can achieve a max of 12+32+2 threads working in parallel:
 
 ```clojure
 (defn heavyf [x] (Thread/sleep 1000) (inc x))
@@ -892,7 +895,15 @@ The main transducing process runs until there are items in the filler sequence (
 ;; 1006ms
 ```
 
-`xf/pmap` has similar limitations to `core/pmap`. It works great when "f" is non trivial and the average elapsed of "f" is uniform across the input. If one `(f item)` takes much more than the others, the current N-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources. Use `xf/pmap` if your transducing transformation is reasonably big and complex.
+`xf/pmap` has similar limitations to `clojure.core/pmap`. It works great when "f" is non trivial and the average elapsed of "f" is uniform across the input. If one `(f item)` takes much more than the others, the current N-chunk is kept busy with parallelism=1 before moving to the next chunk, wasting resources. Use `xf/pmap` if your transducing transformation is reasonably big and complex. Apart from `transduce` you can use it with `sequence`:
+
+```clojure
+(time (doall (pmap heavyf (range 10))))
+;; "Elapsed time: 1005.330409 msecs"
+
+(time (doall (sequence (xf/pmap heavyf) (range 10))))
+;; "Elapsed time: 1002.868326 msecs"
+```
 
 ### `xf/identity`
 
